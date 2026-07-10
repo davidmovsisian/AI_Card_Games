@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Old Maid - Game</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="container game-layout">
+    <section class="panel">
+      <h1>Old Maid Game</h1>
+      <p id="turn-indicator">Loading...</p>
+      <div id="players-area"></div>
+      <div class="actions">
+        <label for="card-index">Pick card index from next player</label>
+        <input id="card-index" type="number" min="0" step="1" value="0" />
+        <button id="draw-button" type="button">Draw Card</button>
+      </div>
+      <p id="game-error" class="error" role="alert"></p>
+    </section>
+
+    <section class="panel log-panel">
+      <h2>Game Log</h2>
+      <ul id="game-log"></ul>
+    </section>
+  </main>
+
+  <script type="module" src="./js/game.js"></script>
+</body>
+</html>

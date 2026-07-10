@@ -1,0 +1,116 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f4f6f8;
+  color: #1f2937;
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+
+input,
+select,
+textarea,
+button {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #9ca3af;
+  border-radius: 6px;
+}
+
+button {
+  cursor: pointer;
+  margin-top: 12px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  background: #93c5fd;
+}
+
+.game-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+.player-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fafafa;
+}
+
+.player-block h3 {
+  margin: 0 0 8px;
+}
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.card {
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.card.back {
+  background: #e5e7eb;
+}
+
+.log-panel {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+#game-log {
+  margin: 0;
+  padding-left: 20px;
+}
+
+#game-log li {
+  margin-bottom: 8px;
+}
+
+.error {
+  color: #b91c1c;
+  min-height: 18px;
+}
+
+@media (max-width: 900px) {
+  .game-layout {
+    grid-template-columns: 1fr;
+  }
+}
