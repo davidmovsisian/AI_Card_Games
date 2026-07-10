@@ -170,13 +170,13 @@ async function maybeRunAiTurns(state) {
         : 'No new pairs.';
       addLog(`Current: ${aiPlayer} | Picked from: ${targetPlayer} | ${summary}`);
 
+      currentState = await getPlayerState(gameId, humanPlayer);
+      renderState(currentState);
+
       if (result.game_over) {
         finishGame('Game over.');
         break;
       }
-
-      currentState = await getPlayerState(gameId, humanPlayer);
-      renderState(currentState);
     }
   } catch (error) {
     gameError.textContent = error.message || 'AI move failed.';
@@ -206,6 +206,12 @@ drawButton.addEventListener('click', async () => {
     addLog(`Current: ${humanPlayer} | Picked from: ${drawFromPlayer} | ${summary}`);
 
     if (result.game_over) {
+      try {
+        const finalState = await getPlayerState(gameId, humanPlayer);
+        renderState(finalState);
+      } catch (_) {
+        // best-effort: ignore errors fetching final state on game over
+      }
       finishGame('Game over.');
       return;
     }
