@@ -114,7 +114,7 @@ async def human_move(game_id: str, player_name: str, move: HumanMoveRequest):
             status="success",
             action=f"{player_name} drew a card from {target_player}",
             details=result,
-            player_valid = True if player_name in engine.players else False,
+            player_active = True if player_name in engine.players else False,
             game_over = True if len(engine.players) == 1 else False,
             next_turn=list(engine.players.keys())[engine.current_turn_index],
         )
@@ -149,9 +149,10 @@ async def ai_move(game_id: str, ai_player_name: str):
         status="success",
         action=f"{ai_player_name} drew a card from {target_player}",
         details=result,
-        player_valid = True if ai_player_name in engine.players else False,
+        player_active = True if ai_player_name in engine.players else False,
         game_over = True if len(engine.players) == 1 else False,
         next_turn=list(engine.players.keys())[engine.current_turn_index],
+        ai_commentary=ai_decision.roleplay_comment
     )
 
 if __name__ == "__main__":
