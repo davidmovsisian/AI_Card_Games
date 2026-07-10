@@ -2,7 +2,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 import uvicorn
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from engine import GameEngine
 from ai_service import AIService
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,6 +36,8 @@ class MoveResponse(BaseModel):
     action: str
     details: Dict[str, Any]
     next_turn: str
+    player_active: Optional[bool] = None
+    game_over: Optional[bool] = None
     ai_commentary: str = None  # Optional, only for AI moves
 
 @app.post("/game/create")
