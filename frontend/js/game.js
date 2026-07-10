@@ -15,6 +15,7 @@ const gameLog = document.getElementById('game-log');
 let latestState = null;
 let aiLoopRunning = false;
 let gameEnded = false;
+let pollIntervalId = null;
 
 function addLog(message) {
   const li = document.createElement('li');
@@ -42,6 +43,23 @@ function getNextPlayerName(currentPlayer, state) {
   const currentIndex = activePlayers.indexOf(currentPlayer);
   if (currentIndex < 0 || activePlayers.length === 0) return null;
   return activePlayers[(currentIndex + 1) % activePlayers.length];
+}
+
+function extractTargetFromAction(actionText) {
+  const match = String(actionText || '').match(/\bdrew a card from (.+)$/i);
+  return match ? match[1].trim() : null;
+}
+
+function finishGame(message) {
+  gameEnded = true;
+  drawButton.disabled = true;
+  if (pollIntervalId) {
+    clearInterval(pollIntervalId);
+    pollIntervalId = null;
+  }
+  if (message) {
+    turnIndicator.textContent = message;
+  }
 }
 
 function renderState(state) {
@@ -97,6 +115,11 @@ function renderState(state) {
   drawButton.disabled = currentTurn !== humanPlayer || gameEnded;
   if (currentTurn === humanPlayer) {
     const nextPlayer = getNextPlayerName(humanPlayer, state);
+    if (!nextPlayer) {
+      drawButton.disabled = true;
+      cardIndexInput.max = '0';
+      return;
+    }
     const nextCount = Number(state.opponents_card_counts?.[nextPlayer] || 0);
     const max = Math.max(0, nextCount - 1);
     cardIndexInput.max = String(max);
@@ -118,9 +141,7 @@ async function refreshState() {
   } catch (error) {
     const message = error.message || '';
     if (message.toLowerCase().includes('player not in this game')) {
-      gameEnded = true;
-      drawButton.disabled = true;
-      turnIndicator.textContent = 'Game over for you.';
+      finishGame('Game over for you.');
       addLog('You are out of the game.');
       return;
     }
@@ -137,17 +158,20 @@ async function maybeRunAiTurns(state) {
     let currentState = state;
     while (!gameEnded && currentState.current_turn !== humanPlayer) {
       const aiPlayer = currentState.current_turn;
-      const fromPlayer = getNextPlayerName(aiPlayer, currentState) || 'unknown player';
+      const computedTargetPlayer = getNextPlayerName(aiPlayer, currentState);
       const result = await aiMove(gameId, aiPlayer);
+      const reportedTargetPlayer = extractTargetFromAction(result.action);
+      const targetPlayer = reportedTargetPlayer || computedTargetPlayer;
+      if (!targetPlayer) {
+        throw new Error('Could not determine target player for AI move.');
+      }
       const summary = (result.details?.new_pairs_formed || []).length
         ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
         : 'No new pairs.';
-      addLog(`Current: ${aiPlayer} | Picked from: ${fromPlayer} | ${summary}`);
+      addLog(`Current: ${aiPlayer} | Picked from: ${targetPlayer} | ${summary}`);
 
       if (result.game_over) {
-        gameEnded = true;
-        turnIndicator.textContent = 'Game over.';
-        drawButton.disabled = true;
+        finishGame('Game over.');
         break;
       }
 
@@ -168,7 +192,10 @@ drawButton.addEventListener('click', async () => {
   drawButton.disabled = true;
 
   try {
-    const nextPlayer = getNextPlayerName(humanPlayer, latestState) || 'unknown player';
+    const drawFromPlayer = getNextPlayerName(humanPlayer, latestState);
+    if (!drawFromPlayer) {
+      throw new Error('Could not determine target player for human move.');
+    }
     const cardIndex = Number(cardIndexInput.value);
 
     const result = await humanMove(gameId, humanPlayer, cardIndex);
@@ -176,12 +203,10 @@ drawButton.addEventListener('click', async () => {
       ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
       : 'No new pairs.';
 
-    addLog(`Current: ${humanPlayer} | Picked from: ${nextPlayer} | ${summary}`);
+    addLog(`Current: ${humanPlayer} | Picked from: ${drawFromPlayer} | ${summary}`);
 
     if (result.game_over) {
-      gameEnded = true;
-      turnIndicator.textContent = 'Game over.';
-      drawButton.disabled = true;
+      finishGame('Game over.');
       return;
     }
 
@@ -197,9 +222,15 @@ if (!gameId || !humanPlayer) {
   drawButton.disabled = true;
 } else {
   void refreshState();
-  window.setInterval(() => {
+  pollIntervalId = window.setInterval(() => {
     if (!aiLoopRunning && !gameEnded) {
       void refreshState();
     }
   }, 2000);
+  window.addEventListener('beforeunload', () => {
+    if (pollIntervalId) {
+      clearInterval(pollIntervalId);
+      pollIntervalId = null;
+    }
+  });
 }

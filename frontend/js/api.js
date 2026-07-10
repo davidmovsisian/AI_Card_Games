@@ -1,15 +1,25 @@
 const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
+const API_BASE_STORAGE_KEY = 'oldMaidApiBase';
 
 export function getApiBaseUrl() {
-  return localStorage.getItem('old_maid_api_base') || DEFAULT_API_BASE;
+  return localStorage.getItem(API_BASE_STORAGE_KEY) || DEFAULT_API_BASE;
 }
 
 export function setApiBaseUrl(url) {
   const normalized = (url || '').trim().replace(/\/$/, '');
   if (normalized) {
-    localStorage.setItem('old_maid_api_base', normalized);
+    let parsed;
+    try {
+      parsed = new URL(normalized);
+    } catch {
+      throw new Error('API Base URL must be a valid absolute URL (for example: http://127.0.0.1:8000).');
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error('API Base URL must use http or https.');
+    }
+    localStorage.setItem(API_BASE_STORAGE_KEY, normalized);
   } else {
-    localStorage.removeItem('old_maid_api_base');
+    localStorage.removeItem(API_BASE_STORAGE_KEY);
   }
 }
 

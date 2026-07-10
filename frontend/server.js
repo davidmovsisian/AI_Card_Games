@@ -4,7 +4,7 @@ const path = require('path');
 
 const host = '127.0.0.1';
 const port = Number(process.env.FRONTEND_PORT || 5173);
-const rootDir = __dirname;
+const rootDir = path.resolve(__dirname);
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -20,7 +20,7 @@ const mimeTypes = {
 http
   .createServer((req, res) => {
     const urlPath = (req.url || '/').split('?')[0];
-    let filePath = path.join(rootDir, urlPath === '/' ? 'index.html' : urlPath);
+    let filePath = path.resolve(rootDir, urlPath === '/' ? 'index.html' : `.${urlPath}`);
 
     if (!filePath.startsWith(rootDir)) {
       res.writeHead(403);
@@ -40,7 +40,12 @@ http
       }
 
       const ext = path.extname(filePath).toLowerCase();
-      res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
+      if (!mimeTypes[ext]) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Forbidden');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': mimeTypes[ext] });
       res.end(data);
     });
   })
