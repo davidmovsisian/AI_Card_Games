@@ -209,7 +209,7 @@ drawButton.addEventListener('click', async () => {
       try {
         const finalState = await getPlayerState(gameId, humanPlayer);
         renderState(finalState);
-      } catch (_) {
+      } catch (err) {
         // best-effort: ignore errors fetching final state on game over
       }
       finishGame('Game over.');
