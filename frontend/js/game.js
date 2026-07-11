@@ -18,6 +18,8 @@ let gameEnded = false;
 let humanOut = false;
 let pollIntervalId = null;
 let prevActiveAiSet = new Set();
+const CARDS_DRAWN_PER_MOVE = 1;
+const CARDS_PER_PAIR = 2;
 
 function addLog(message) {
   const li = document.createElement('li');
@@ -25,13 +27,63 @@ function addLog(message) {
   gameLog.prepend(li);
 }
 
-// Returns the set of AI players that currently have cards, based on state.
-function buildActiveAiSet(state, queriedAs) {
+function getPlayerCounts(state, perspectivePlayer = humanPlayer) {
+  const counts = {};
+  for (const playerName of [humanPlayer, ...aiNames]) {
+    if (!playerName) continue;
+    if (playerName === humanPlayer && humanOut) {
+      counts[playerName] = 0;
+    } else if (playerName === perspectivePlayer) {
+      counts[playerName] = (state?.your_hand || []).length;
+    } else {
+      counts[playerName] = Number(state?.opponents_card_counts?.[playerName] || 0);
+    }
+  }
+  return counts;
+}
+
+// Derives post-move card counts from the pre-move state by applying the draw transfer
+// and removing two cards for each newly formed pair in the current player's hand.
+function buildPostMoveCounts(state, perspectivePlayer, currentPlayer, targetPlayer, newPairsFormed = []) {
+  const counts = getPlayerCounts(state, perspectivePlayer);
+  const pairCount = Array.isArray(newPairsFormed) ? newPairsFormed.length : 0;
+  const cardsRemovedByPairs = pairCount * CARDS_PER_PAIR;
+
+  counts[targetPlayer] = Math.max(0, Number(counts[targetPlayer] || 0) - 1);
+  counts[currentPlayer] = Math.max(
+    0,
+    Number(counts[currentPlayer] || 0) + CARDS_DRAWN_PER_MOVE - cardsRemovedByPairs,
+  );
+
+  return counts;
+}
+
+function hasCards(playerCounts, playerName) {
+  return Number(playerCounts?.[playerName] || 0) > 0;
+}
+
+function countActivePlayers(playerCounts) {
+  return Object.keys(playerCounts).filter((playerName) => hasCards(playerCounts, playerName)).length;
+}
+
+function isTerminalCounts(playerCounts) {
+  return countActivePlayers(playerCounts) === 1;
+}
+
+function formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts) {
+  return [
+    `Current: ${currentPlayer}`,
+    `Picked from: ${targetPlayer}`,
+    summary,
+    `Cards after move: ${currentPlayer}=${playerCounts[currentPlayer] || 0}, ${targetPlayer}=${playerCounts[targetPlayer] || 0}`,
+  ].join(' | ');
+}
+
+// Returns the set of AI players that currently have cards, based on player counts.
+function buildActiveAiSet(playerCounts) {
   const active = new Set();
   for (const aiName of aiNames) {
-    if (aiName === queriedAs) {
-      if ((state.your_hand || []).length > 0) active.add(aiName);
-    } else if (Number(state.opponents_card_counts?.[aiName] || 0) > 0) {
+    if (hasCards(playerCounts, aiName)) {
       active.add(aiName);
     }
   }
@@ -39,12 +91,12 @@ function buildActiveAiSet(state, queriedAs) {
 }
 
 // Compares active AI set against the previous snapshot and logs any new eliminations.
-function checkAiEliminations(state, queriedAs) {
-  const currentActiveAis = buildActiveAiSet(state, queriedAs);
+function checkAiEliminations(playerCounts) {
+  const currentActiveAis = buildActiveAiSet(playerCounts);
   if (prevActiveAiSet.size > 0) {
     for (const name of prevActiveAiSet) {
       if (!currentActiveAis.has(name)) {
-        addLog(`${name} is out of the game.`);
+        addLog(`${name} is out of the game. (0 cards left)`);
       }
     }
   }
@@ -52,11 +104,11 @@ function checkAiEliminations(state, queriedAs) {
 }
 
 // Returns the next player (with cards) after currentPlayer in turn order.
-// queriedAs identifies which player's perspective the state is from (their hand is in state.your_hand).
-function getNextPlayerName(currentPlayer, state, queriedAs = humanPlayer) {
+// perspectivePlayer identifies which player's perspective the state is from (their hand is in state.your_hand).
+function getNextPlayerName(currentPlayer, state, perspectivePlayer = humanPlayer) {
   const allPlayers = humanOut ? [...aiNames] : [humanPlayer, ...aiNames];
   const activePlayers = allPlayers.filter((name) => {
-    if (name === queriedAs) return (state?.your_hand || []).length > 0;
+    if (name === perspectivePlayer) return (state?.your_hand || []).length > 0;
     return Number(state?.opponents_card_counts?.[name] || 0) > 0;
   });
   const currentIndex = activePlayers.indexOf(currentPlayer);
@@ -83,10 +135,11 @@ function finishGame(message) {
   }
 }
 
-// Renders the game board. queriedAs is the player whose perspective the state represents.
-function renderState(state, queriedAs = humanPlayer) {
+// Renders the game board. perspectivePlayer is the player whose perspective the state represents.
+function renderState(state, perspectivePlayer = humanPlayer, options = {}) {
   latestState = state;
-  const currentTurn = state.current_turn;
+  const playerCounts = options.playerCounts || getPlayerCounts(state, perspectivePlayer);
+  const currentTurn = options.currentTurn || state.current_turn;
   turnIndicator.textContent = `Current turn: ${currentTurn}`;
 
   playersArea.innerHTML = '';
@@ -108,8 +161,9 @@ function renderState(state, queriedAs = humanPlayer) {
       const empty = document.createElement('div');
       empty.textContent = '(Eliminated)';
       cards.appendChild(empty);
-    } else if (playerName === queriedAs) {
-      // This is the player we queried as — their cards are in state.your_hand.
+    } else if (playerName === humanPlayer && perspectivePlayer === humanPlayer) {
+      // Only the human player's own perspective should ever reveal face-up cards.
+      // If perspectivePlayer is an AI, that AI hand also lives in state.your_hand but must stay hidden.
       for (const card of state.your_hand || []) {
         const cardEl = document.createElement('div');
         cardEl.className = 'card';
@@ -122,7 +176,7 @@ function renderState(state, queriedAs = humanPlayer) {
         cards.appendChild(empty);
       }
     } else {
-      const count = Number(state.opponents_card_counts?.[playerName] || 0);
+      const count = Number(playerCounts[playerName] || 0);
       for (let i = 0; i < count; i += 1) {
         const back = document.createElement('div');
         back.className = 'card back';
@@ -164,13 +218,13 @@ async function fetchGameState() {
   if (!humanOut) {
     try {
       const state = await getPlayerState(gameId, humanPlayer);
-      return { state, queriedAs: humanPlayer };
+      return { state, perspectivePlayer: humanPlayer };
     } catch (e) {
       const msg = (e.message || '').toLowerCase();
       if (msg.includes('player not in this game')) {
         humanOut = true;
         drawButton.disabled = true;
-        addLog('You are out of the game.');
+        addLog('You are out of the game. (0 cards left)');
         // Fall through to query via an AI player.
       } else {
         throw e;
@@ -182,7 +236,7 @@ async function fetchGameState() {
   for (const aiName of aiNames) {
     try {
       const state = await getPlayerState(gameId, aiName);
-      return { state, queriedAs: aiName };
+      return { state, perspectivePlayer: aiName };
     } catch (e) {
       const msg = (e.message || '').toLowerCase();
       if (!msg.includes('player not in this game')) throw e;
@@ -196,28 +250,70 @@ async function fetchGameState() {
 async function refreshState() {
   if (!gameId || !humanPlayer || gameEnded) return;
   try {
-    const { state, queriedAs } = await fetchGameState();
+    const { state, perspectivePlayer } = await fetchGameState();
     gameError.textContent = '';
-    checkAiEliminations(state, queriedAs);
-    renderState(state, queriedAs);
+    checkAiEliminations(getPlayerCounts(state, perspectivePlayer));
+    renderState(state, perspectivePlayer);
 
     if (!humanOut && state.current_turn === humanPlayer) {
       // Human's turn — wait for the player to act.
     } else {
-      void maybeRunAiTurns(state, queriedAs);
+      void maybeRunAiTurns(state, perspectivePlayer);
     }
   } catch (error) {
     gameError.textContent = error.message || 'Failed to load game state.';
   }
 }
 
-async function maybeRunAiTurns(initialState, initialQueriedAs = humanPlayer) {
+// Fetches the authoritative post-move state when available, but falls back to a
+// counts-derived render if a terminal move caused the backend to remove the game
+// before the frontend could re-fetch it.
+async function syncMoveOutcome(previousState, previousPerspectivePlayer, result, currentPlayer, targetPlayer) {
+  const summary = (result.details?.new_pairs_formed || []).length
+    ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
+    : 'No new pairs.';
+
+  try {
+    const { state, perspectivePlayer } = await fetchGameState();
+    const playerCounts = getPlayerCounts(state, perspectivePlayer);
+    checkAiEliminations(playerCounts);
+    renderState(state, perspectivePlayer);
+    addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
+    return { state, perspectivePlayer, terminal: isTerminalCounts(playerCounts) };
+  } catch (error) {
+    // A non-terminal move should always be re-fetchable. If the backend state is gone,
+    // only tolerate that on a terminal move and render the last known board from counts.
+    if (!result.game_over) {
+      throw new Error(`Expected backend state to persist for non-terminal move, but post-move fetch failed: ${error.message || String(error)}`);
+    }
+
+    const playerCounts = buildPostMoveCounts(
+      previousState,
+      previousPerspectivePlayer,
+      currentPlayer,
+      targetPlayer,
+      result.details?.new_pairs_formed || [],
+    );
+
+    checkAiEliminations(playerCounts);
+    // Only the count-based visuals matter in this terminal fallback render. The underlying
+    // state object is pre-move, but the game ends immediately after this repaint.
+    renderState(previousState, previousPerspectivePlayer, {
+      playerCounts,
+      currentTurn: result.next_turn,
+    });
+    addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
+    return { state: previousState, perspectivePlayer: previousPerspectivePlayer, terminal: isTerminalCounts(playerCounts) };
+  }
+}
+
+async function maybeRunAiTurns(initialState, initialPerspectivePlayer = humanPlayer) {
   if (aiLoopRunning || gameEnded) return;
 
   aiLoopRunning = true;
   try {
     let currentState = initialState;
-    let currentQueriedAs = initialQueriedAs;
+    let currentPerspectivePlayer = initialPerspectivePlayer;
 
     while (!gameEnded) {
       // If it is the human's turn and the human is still active, hand control back.
@@ -226,47 +322,37 @@ async function maybeRunAiTurns(initialState, initialQueriedAs = humanPlayer) {
         // Defensive: humanOut is true but we have stale state that still shows the human
         // as the current turn (the backend skips eliminated players, so this is transient).
         // Re-fetch to get the actual next active player before continuing.
-        const { state: refreshed, queriedAs: refreshedAs } = await fetchGameState();
-        checkAiEliminations(refreshed, refreshedAs);
-        renderState(refreshed, refreshedAs);
+        const { state: refreshed, perspectivePlayer: refreshedPerspectivePlayer } = await fetchGameState();
+        checkAiEliminations(getPlayerCounts(refreshed, refreshedPerspectivePlayer));
+        renderState(refreshed, refreshedPerspectivePlayer);
         currentState = refreshed;
-        currentQueriedAs = refreshedAs;
+        currentPerspectivePlayer = refreshedPerspectivePlayer;
         continue;
       }
 
       const aiPlayer = currentState.current_turn;
-      const computedTargetPlayer = getNextPlayerName(aiPlayer, currentState, currentQueriedAs);
+      const computedTargetPlayer = getNextPlayerName(aiPlayer, currentState, currentPerspectivePlayer);
       const result = await aiMove(gameId, aiPlayer);
       const reportedTargetPlayer = extractTargetFromAction(result.action);
       const targetPlayer = reportedTargetPlayer || computedTargetPlayer;
       if (!targetPlayer) {
         throw new Error('Could not determine target player for AI move.');
       }
-      const summary = (result.details?.new_pairs_formed || []).length
-        ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
-        : 'No new pairs.';
-      addLog(`Current: ${aiPlayer} | Picked from: ${targetPlayer} | ${summary}`);
+      const { state: newState, perspectivePlayer: newPerspectivePlayer, terminal } = await syncMoveOutcome(
+        currentState,
+        currentPerspectivePlayer,
+        result,
+        aiPlayer,
+        targetPlayer,
+      );
 
-      if (result.game_over) {
-        // Always render final state before stopping the loop.
-        // Errors are ignored here because the backend may tear down game state
-        // immediately after reporting game_over, making follow-up queries unreliable.
-        try {
-          const { state: finalState, queriedAs: finalQueriedAs } = await fetchGameState();
-          checkAiEliminations(finalState, finalQueriedAs);
-          renderState(finalState, finalQueriedAs);
-        } catch (err) {
-          // best-effort: backend may have already torn down state after game_over
-        }
+      if (terminal) {
         finishGame('Game over.');
         break;
       }
 
-      const { state: newState, queriedAs: newQueriedAs } = await fetchGameState();
-      checkAiEliminations(newState, newQueriedAs);
-      renderState(newState, newQueriedAs);
       currentState = newState;
-      currentQueriedAs = newQueriedAs;
+      currentPerspectivePlayer = newPerspectivePlayer;
     }
   } catch (error) {
     gameError.textContent = error.message || 'AI move failed.';
@@ -289,20 +375,15 @@ drawButton.addEventListener('click', async () => {
     const cardIndex = Number(cardIndexInput.value);
 
     const result = await humanMove(gameId, humanPlayer, cardIndex);
-    const summary = (result.details?.new_pairs_formed || []).length
-      ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
-      : 'No new pairs.';
+    const { terminal } = await syncMoveOutcome(
+      latestState,
+      humanPlayer,
+      result,
+      humanPlayer,
+      drawFromPlayer,
+    );
 
-    addLog(`Current: ${humanPlayer} | Picked from: ${drawFromPlayer} | ${summary}`);
-
-    if (result.game_over) {
-      try {
-        const { state: finalState, queriedAs } = await fetchGameState();
-        checkAiEliminations(finalState, queriedAs);
-        renderState(finalState, queriedAs);
-      } catch (err) {
-        // best-effort: backend may have already torn down state after game_over
-      }
+    if (terminal) {
       finishGame('Game over.');
       return;
     }
