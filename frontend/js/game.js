@@ -25,13 +25,48 @@ function addLog(message) {
   gameLog.prepend(li);
 }
 
-// Returns the set of AI players that currently have cards, based on state.
-function buildActiveAiSet(state, queriedAs) {
+function getPlayerCounts(state, queriedAs = humanPlayer) {
+  const counts = {};
+  for (const playerName of [humanPlayer, ...aiNames]) {
+    if (!playerName) continue;
+    if (playerName === humanPlayer && humanOut) {
+      counts[playerName] = 0;
+    } else if (playerName === queriedAs) {
+      counts[playerName] = (state?.your_hand || []).length;
+    } else {
+      counts[playerName] = Number(state?.opponents_card_counts?.[playerName] || 0);
+    }
+  }
+  return counts;
+}
+
+function buildPostMoveCounts(state, queriedAs, currentPlayer, targetPlayer, newPairsFormed = []) {
+  const counts = getPlayerCounts(state, queriedAs);
+  const pairCount = Array.isArray(newPairsFormed) ? newPairsFormed.length : 0;
+
+  counts[targetPlayer] = Math.max(0, Number(counts[targetPlayer] || 0) - 1);
+  counts[currentPlayer] = Math.max(0, Number(counts[currentPlayer] || 0) + 1 - (pairCount * 2));
+
+  return counts;
+}
+
+function countActivePlayers(playerCounts) {
+  return Object.values(playerCounts).filter((count) => Number(count) > 0).length;
+}
+
+function isTerminalCounts(playerCounts) {
+  return countActivePlayers(playerCounts) === 1;
+}
+
+function formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts) {
+  return `Current: ${currentPlayer} | Picked from: ${targetPlayer} | ${summary} | Cards after move: ${currentPlayer}=${Number(playerCounts[currentPlayer] || 0)}, ${targetPlayer}=${Number(playerCounts[targetPlayer] || 0)}`;
+}
+
+// Returns the set of AI players that currently have cards, based on player counts.
+function buildActiveAiSet(playerCounts) {
   const active = new Set();
   for (const aiName of aiNames) {
-    if (aiName === queriedAs) {
-      if ((state.your_hand || []).length > 0) active.add(aiName);
-    } else if (Number(state.opponents_card_counts?.[aiName] || 0) > 0) {
+    if (Number(playerCounts?.[aiName] || 0) > 0) {
       active.add(aiName);
     }
   }
@@ -39,12 +74,12 @@ function buildActiveAiSet(state, queriedAs) {
 }
 
 // Compares active AI set against the previous snapshot and logs any new eliminations.
-function checkAiEliminations(state, queriedAs) {
-  const currentActiveAis = buildActiveAiSet(state, queriedAs);
+function checkAiEliminations(playerCounts) {
+  const currentActiveAis = buildActiveAiSet(playerCounts);
   if (prevActiveAiSet.size > 0) {
     for (const name of prevActiveAiSet) {
       if (!currentActiveAis.has(name)) {
-        addLog(`${name} is out of the game.`);
+        addLog(`${name} is out of the game. (0 cards left)`);
       }
     }
   }
@@ -84,9 +119,10 @@ function finishGame(message) {
 }
 
 // Renders the game board. queriedAs is the player whose perspective the state represents.
-function renderState(state, queriedAs = humanPlayer) {
+function renderState(state, queriedAs = humanPlayer, options = {}) {
   latestState = state;
-  const currentTurn = state.current_turn;
+  const playerCounts = options.playerCounts || getPlayerCounts(state, queriedAs);
+  const currentTurn = options.currentTurn || state.current_turn;
   turnIndicator.textContent = `Current turn: ${currentTurn}`;
 
   playersArea.innerHTML = '';
@@ -108,7 +144,7 @@ function renderState(state, queriedAs = humanPlayer) {
       const empty = document.createElement('div');
       empty.textContent = '(Eliminated)';
       cards.appendChild(empty);
-    } else if (playerName === queriedAs) {
+    } else if (playerName === humanPlayer && queriedAs === humanPlayer) {
       // This is the player we queried as — their cards are in state.your_hand.
       for (const card of state.your_hand || []) {
         const cardEl = document.createElement('div');
@@ -122,7 +158,7 @@ function renderState(state, queriedAs = humanPlayer) {
         cards.appendChild(empty);
       }
     } else {
-      const count = Number(state.opponents_card_counts?.[playerName] || 0);
+      const count = Number(playerCounts[playerName] || 0);
       for (let i = 0; i < count; i += 1) {
         const back = document.createElement('div');
         back.className = 'card back';
@@ -170,7 +206,7 @@ async function fetchGameState() {
       if (msg.includes('player not in this game')) {
         humanOut = true;
         drawButton.disabled = true;
-        addLog('You are out of the game.');
+        addLog('You are out of the game. (0 cards left)');
         // Fall through to query via an AI player.
       } else {
         throw e;
@@ -198,7 +234,7 @@ async function refreshState() {
   try {
     const { state, queriedAs } = await fetchGameState();
     gameError.textContent = '';
-    checkAiEliminations(state, queriedAs);
+    checkAiEliminations(getPlayerCounts(state, queriedAs));
     renderState(state, queriedAs);
 
     if (!humanOut && state.current_turn === humanPlayer) {
@@ -208,6 +244,41 @@ async function refreshState() {
     }
   } catch (error) {
     gameError.textContent = error.message || 'Failed to load game state.';
+  }
+}
+
+async function syncMoveOutcome(previousState, previousQueriedAs, result, currentPlayer, targetPlayer) {
+  const summary = (result.details?.new_pairs_formed || []).length
+    ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
+    : 'No new pairs.';
+
+  try {
+    const { state, queriedAs } = await fetchGameState();
+    const playerCounts = getPlayerCounts(state, queriedAs);
+    checkAiEliminations(playerCounts);
+    renderState(state, queriedAs);
+    addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
+    return { state, queriedAs, terminal: isTerminalCounts(playerCounts) };
+  } catch (error) {
+    if (!result.game_over) {
+      throw error;
+    }
+
+    const playerCounts = buildPostMoveCounts(
+      previousState,
+      previousQueriedAs,
+      currentPlayer,
+      targetPlayer,
+      result.details?.new_pairs_formed || [],
+    );
+
+    checkAiEliminations(playerCounts);
+    renderState(previousState, previousQueriedAs, {
+      playerCounts,
+      currentTurn: result.next_turn,
+    });
+    addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
+    return { state: previousState, queriedAs: previousQueriedAs, terminal: isTerminalCounts(playerCounts) };
   }
 }
 
@@ -227,7 +298,7 @@ async function maybeRunAiTurns(initialState, initialQueriedAs = humanPlayer) {
         // as the current turn (the backend skips eliminated players, so this is transient).
         // Re-fetch to get the actual next active player before continuing.
         const { state: refreshed, queriedAs: refreshedAs } = await fetchGameState();
-        checkAiEliminations(refreshed, refreshedAs);
+        checkAiEliminations(getPlayerCounts(refreshed, refreshedAs));
         renderState(refreshed, refreshedAs);
         currentState = refreshed;
         currentQueriedAs = refreshedAs;
@@ -242,29 +313,19 @@ async function maybeRunAiTurns(initialState, initialQueriedAs = humanPlayer) {
       if (!targetPlayer) {
         throw new Error('Could not determine target player for AI move.');
       }
-      const summary = (result.details?.new_pairs_formed || []).length
-        ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
-        : 'No new pairs.';
-      addLog(`Current: ${aiPlayer} | Picked from: ${targetPlayer} | ${summary}`);
+      const { state: newState, queriedAs: newQueriedAs, terminal } = await syncMoveOutcome(
+        currentState,
+        currentQueriedAs,
+        result,
+        aiPlayer,
+        targetPlayer,
+      );
 
-      if (result.game_over) {
-        // Always render final state before stopping the loop.
-        // Errors are ignored here because the backend may tear down game state
-        // immediately after reporting game_over, making follow-up queries unreliable.
-        try {
-          const { state: finalState, queriedAs: finalQueriedAs } = await fetchGameState();
-          checkAiEliminations(finalState, finalQueriedAs);
-          renderState(finalState, finalQueriedAs);
-        } catch (err) {
-          // best-effort: backend may have already torn down state after game_over
-        }
+      if (terminal) {
         finishGame('Game over.');
         break;
       }
 
-      const { state: newState, queriedAs: newQueriedAs } = await fetchGameState();
-      checkAiEliminations(newState, newQueriedAs);
-      renderState(newState, newQueriedAs);
       currentState = newState;
       currentQueriedAs = newQueriedAs;
     }
@@ -289,20 +350,15 @@ drawButton.addEventListener('click', async () => {
     const cardIndex = Number(cardIndexInput.value);
 
     const result = await humanMove(gameId, humanPlayer, cardIndex);
-    const summary = (result.details?.new_pairs_formed || []).length
-      ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
-      : 'No new pairs.';
+    const { terminal } = await syncMoveOutcome(
+      latestState,
+      humanPlayer,
+      result,
+      humanPlayer,
+      drawFromPlayer,
+    );
 
-    addLog(`Current: ${humanPlayer} | Picked from: ${drawFromPlayer} | ${summary}`);
-
-    if (result.game_over) {
-      try {
-        const { state: finalState, queriedAs } = await fetchGameState();
-        checkAiEliminations(finalState, queriedAs);
-        renderState(finalState, queriedAs);
-      } catch (err) {
-        // best-effort: backend may have already torn down state after game_over
-      }
+    if (terminal) {
       finishGame('Game over.');
       return;
     }
