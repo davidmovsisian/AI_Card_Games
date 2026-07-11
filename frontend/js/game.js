@@ -58,6 +58,46 @@ function buildPostMoveCounts(state, perspectivePlayer, currentPlayer, targetPlay
   return counts;
 }
 
+function removePairsFromVisibleHand(hand = []) {
+  const rankGroups = new Map();
+  for (const card of hand) {
+    if (!rankGroups.has(card.rank)) {
+      rankGroups.set(card.rank, []);
+    }
+    rankGroups.get(card.rank).push(card);
+  }
+
+  const nextHand = [];
+  for (const cards of rankGroups.values()) {
+    if (cards.length % 2 === 1) {
+      nextHand.push(cards[cards.length - 1]);
+    }
+  }
+
+  return nextHand;
+}
+
+function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, result, currentPlayer, targetPlayer) {
+  const nextState = {
+    ...previousState,
+    your_hand: Array.isArray(previousState?.your_hand) ? [...previousState.your_hand] : [],
+    opponents_card_counts: { ...(previousState?.opponents_card_counts || {}) },
+    current_turn: result.next_turn,
+  };
+
+  if (previousPerspectivePlayer === currentPlayer) {
+    const drawnCard = result.details?.drawn_card_visible_to_drawer;
+    if (drawnCard?.rank && drawnCard?.suit) {
+      nextState.your_hand.push(drawnCard);
+    }
+    nextState.your_hand = removePairsFromVisibleHand(nextState.your_hand);
+  } else if (previousPerspectivePlayer === targetPlayer && nextState.your_hand.length > 0) {
+    nextState.your_hand = nextState.your_hand.slice(0, -1);
+  }
+
+  return nextState;
+}
+
 function hasCards(playerCounts, playerName) {
   return Number(playerCounts?.[playerName] || 0) > 0;
 }
@@ -279,7 +319,7 @@ async function syncMoveOutcome(previousState, previousPerspectivePlayer, result,
     checkAiEliminations(playerCounts);
     renderState(state, perspectivePlayer);
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
-    return { state, perspectivePlayer, terminal: isTerminalCounts(playerCounts) };
+    return { state, perspectivePlayer, gameOver: Boolean(result.game_over) };
   } catch (error) {
     // A non-terminal move should always be re-fetchable. If the backend state is gone,
     // only tolerate that on a terminal move and render the last known board from counts.
@@ -295,15 +335,23 @@ async function syncMoveOutcome(previousState, previousPerspectivePlayer, result,
       result.details?.new_pairs_formed || [],
     );
 
+    const fallbackState = buildFallbackPostMoveState(
+      previousState,
+      previousPerspectivePlayer,
+      result,
+      currentPlayer,
+      targetPlayer,
+    );
+
     checkAiEliminations(playerCounts);
     // Only the count-based visuals matter in this terminal fallback render. The underlying
-    // state object is pre-move, but the game ends immediately after this repaint.
-    renderState(previousState, previousPerspectivePlayer, {
+    // state is synthesized from move details so pair removal/count changes are visible first.
+    renderState(fallbackState, previousPerspectivePlayer, {
       playerCounts,
       currentTurn: result.next_turn,
     });
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
-    return { state: previousState, perspectivePlayer: previousPerspectivePlayer, terminal: isTerminalCounts(playerCounts) };
+    return { state: fallbackState, perspectivePlayer: previousPerspectivePlayer, gameOver: Boolean(result.game_over) };
   }
 }
 
@@ -338,7 +386,7 @@ async function maybeRunAiTurns(initialState, initialPerspectivePlayer = humanPla
       if (!targetPlayer) {
         throw new Error('Could not determine target player for AI move.');
       }
-      const { state: newState, perspectivePlayer: newPerspectivePlayer, terminal } = await syncMoveOutcome(
+      const { state: newState, perspectivePlayer: newPerspectivePlayer, gameOver } = await syncMoveOutcome(
         currentState,
         currentPerspectivePlayer,
         result,
@@ -346,7 +394,7 @@ async function maybeRunAiTurns(initialState, initialPerspectivePlayer = humanPla
         targetPlayer,
       );
 
-      if (terminal) {
+      if (gameOver) {
         finishGame('Game over.');
         break;
       }
@@ -375,7 +423,7 @@ drawButton.addEventListener('click', async () => {
     const cardIndex = Number(cardIndexInput.value);
 
     const result = await humanMove(gameId, humanPlayer, cardIndex);
-    const { terminal } = await syncMoveOutcome(
+    const { gameOver } = await syncMoveOutcome(
       latestState,
       humanPlayer,
       result,
@@ -383,7 +431,7 @@ drawButton.addEventListener('click', async () => {
       drawFromPlayer,
     );
 
-    if (terminal) {
+    if (gameOver) {
       finishGame('Game over.');
       return;
     }
