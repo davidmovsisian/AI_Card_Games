@@ -45,15 +45,24 @@ function getPlayerCounts(state, queriedAs = humanPlayer) {
 function buildPostMoveCounts(state, queriedAs, currentPlayer, targetPlayer, newPairsFormed = []) {
   const counts = getPlayerCounts(state, queriedAs);
   const pairCount = Array.isArray(newPairsFormed) ? newPairsFormed.length : 0;
+  const cardsDrawn = 1;
+  const cardsRemovedByPairs = pairCount * 2;
 
   counts[targetPlayer] = Math.max(0, Number(counts[targetPlayer] || 0) - 1);
-  counts[currentPlayer] = Math.max(0, Number(counts[currentPlayer] || 0) + 1 - (pairCount * 2));
+  counts[currentPlayer] = Math.max(
+    0,
+    Number(counts[currentPlayer] || 0) + cardsDrawn - cardsRemovedByPairs,
+  );
 
   return counts;
 }
 
+function hasCards(playerCounts, playerName) {
+  return Number(playerCounts?.[playerName] || 0) > 0;
+}
+
 function countActivePlayers(playerCounts) {
-  return Object.values(playerCounts).filter((count) => Number(count) > 0).length;
+  return Object.keys(playerCounts).filter((playerName) => hasCards(playerCounts, playerName)).length;
 }
 
 function isTerminalCounts(playerCounts) {
@@ -61,14 +70,19 @@ function isTerminalCounts(playerCounts) {
 }
 
 function formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts) {
-  return `Current: ${currentPlayer} | Picked from: ${targetPlayer} | ${summary} | Cards after move: ${currentPlayer}=${playerCounts[currentPlayer] || 0}, ${targetPlayer}=${playerCounts[targetPlayer] || 0}`;
+  return [
+    `Current: ${currentPlayer}`,
+    `Picked from: ${targetPlayer}`,
+    summary,
+    `Cards after move: ${currentPlayer}=${playerCounts[currentPlayer] || 0}, ${targetPlayer}=${playerCounts[targetPlayer] || 0}`,
+  ].join(' | ');
 }
 
 // Returns the set of AI players that currently have cards, based on player counts.
 function buildActiveAiSet(playerCounts) {
   const active = new Set();
   for (const aiName of aiNames) {
-    if (Number(playerCounts?.[aiName] || 0) > 0) {
+    if (hasCards(playerCounts, aiName)) {
       active.add(aiName);
     }
   }
@@ -269,7 +283,7 @@ async function syncMoveOutcome(previousState, previousQueriedAs, result, current
     // A non-terminal move should always be re-fetchable. If the backend state is gone,
     // only tolerate that on a terminal move and render the last known board from counts.
     if (!result.game_over) {
-      throw error;
+      throw new Error(`Failed to fetch post-move state for non-terminal move: ${error.message || error}`);
     }
 
     const playerCounts = buildPostMoveCounts(
@@ -281,6 +295,8 @@ async function syncMoveOutcome(previousState, previousQueriedAs, result, current
     );
 
     checkAiEliminations(playerCounts);
+    // Only the count-based visuals matter in this terminal fallback render. The underlying
+    // state object is pre-move, but the game ends immediately after this repaint.
     renderState(previousState, previousQueriedAs, {
       playerCounts,
       currentTurn: result.next_turn,
