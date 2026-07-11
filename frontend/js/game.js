@@ -18,6 +18,8 @@ let gameEnded = false;
 let humanOut = false;
 let pollIntervalId = null;
 let prevActiveAiSet = new Set();
+const CARDS_DRAWN_PER_MOVE = 1;
+const CARDS_PER_PAIR = 2;
 
 function addLog(message) {
   const li = document.createElement('li');
@@ -25,13 +27,13 @@ function addLog(message) {
   gameLog.prepend(li);
 }
 
-function getPlayerCounts(state, queriedAs = humanPlayer) {
+function getPlayerCounts(state, perspectivePlayer = humanPlayer) {
   const counts = {};
   for (const playerName of [humanPlayer, ...aiNames]) {
     if (!playerName) continue;
     if (playerName === humanPlayer && humanOut) {
       counts[playerName] = 0;
-    } else if (playerName === queriedAs) {
+    } else if (playerName === perspectivePlayer) {
       counts[playerName] = (state?.your_hand || []).length;
     } else {
       counts[playerName] = Number(state?.opponents_card_counts?.[playerName] || 0);
@@ -42,16 +44,15 @@ function getPlayerCounts(state, queriedAs = humanPlayer) {
 
 // Derives post-move card counts from the pre-move state by applying the draw transfer
 // and removing two cards for each newly formed pair in the current player's hand.
-function buildPostMoveCounts(state, queriedAs, currentPlayer, targetPlayer, newPairsFormed = []) {
-  const counts = getPlayerCounts(state, queriedAs);
+function buildPostMoveCounts(state, perspectivePlayer, currentPlayer, targetPlayer, newPairsFormed = []) {
+  const counts = getPlayerCounts(state, perspectivePlayer);
   const pairCount = Array.isArray(newPairsFormed) ? newPairsFormed.length : 0;
-  const cardsDrawn = 1;
-  const cardsRemovedByPairs = pairCount * 2;
+  const cardsRemovedByPairs = pairCount * CARDS_PER_PAIR;
 
   counts[targetPlayer] = Math.max(0, Number(counts[targetPlayer] || 0) - 1);
   counts[currentPlayer] = Math.max(
     0,
-    Number(counts[currentPlayer] || 0) + cardsDrawn - cardsRemovedByPairs,
+    Number(counts[currentPlayer] || 0) + CARDS_DRAWN_PER_MOVE - cardsRemovedByPairs,
   );
 
   return counts;
@@ -103,11 +104,11 @@ function checkAiEliminations(playerCounts) {
 }
 
 // Returns the next player (with cards) after currentPlayer in turn order.
-// queriedAs identifies which player's perspective the state is from (their hand is in state.your_hand).
-function getNextPlayerName(currentPlayer, state, queriedAs = humanPlayer) {
+// perspectivePlayer identifies which player's perspective the state is from (their hand is in state.your_hand).
+function getNextPlayerName(currentPlayer, state, perspectivePlayer = humanPlayer) {
   const allPlayers = humanOut ? [...aiNames] : [humanPlayer, ...aiNames];
   const activePlayers = allPlayers.filter((name) => {
-    if (name === queriedAs) return (state?.your_hand || []).length > 0;
+    if (name === perspectivePlayer) return (state?.your_hand || []).length > 0;
     return Number(state?.opponents_card_counts?.[name] || 0) > 0;
   });
   const currentIndex = activePlayers.indexOf(currentPlayer);
@@ -134,10 +135,10 @@ function finishGame(message) {
   }
 }
 
-// Renders the game board. queriedAs is the player whose perspective the state represents.
-function renderState(state, queriedAs = humanPlayer, options = {}) {
+// Renders the game board. perspectivePlayer is the player whose perspective the state represents.
+function renderState(state, perspectivePlayer = humanPlayer, options = {}) {
   latestState = state;
-  const playerCounts = options.playerCounts || getPlayerCounts(state, queriedAs);
+  const playerCounts = options.playerCounts || getPlayerCounts(state, perspectivePlayer);
   const currentTurn = options.currentTurn || state.current_turn;
   turnIndicator.textContent = `Current turn: ${currentTurn}`;
 
@@ -160,9 +161,9 @@ function renderState(state, queriedAs = humanPlayer, options = {}) {
       const empty = document.createElement('div');
       empty.textContent = '(Eliminated)';
       cards.appendChild(empty);
-    } else if (playerName === humanPlayer && queriedAs === humanPlayer) {
+    } else if (playerName === humanPlayer && perspectivePlayer === humanPlayer) {
       // Only the human player's own perspective should ever reveal face-up cards.
-      // If queriedAs is an AI, that AI hand also lives in state.your_hand but must stay hidden.
+      // If perspectivePlayer is an AI, that AI hand also lives in state.your_hand but must stay hidden.
       for (const card of state.your_hand || []) {
         const cardEl = document.createElement('div');
         cardEl.className = 'card';
@@ -217,7 +218,7 @@ async function fetchGameState() {
   if (!humanOut) {
     try {
       const state = await getPlayerState(gameId, humanPlayer);
-      return { state, queriedAs: humanPlayer };
+      return { state, perspectivePlayer: humanPlayer };
     } catch (e) {
       const msg = (e.message || '').toLowerCase();
       if (msg.includes('player not in this game')) {
@@ -235,7 +236,7 @@ async function fetchGameState() {
   for (const aiName of aiNames) {
     try {
       const state = await getPlayerState(gameId, aiName);
-      return { state, queriedAs: aiName };
+      return { state, perspectivePlayer: aiName };
     } catch (e) {
       const msg = (e.message || '').toLowerCase();
       if (!msg.includes('player not in this game')) throw e;
@@ -249,15 +250,15 @@ async function fetchGameState() {
 async function refreshState() {
   if (!gameId || !humanPlayer || gameEnded) return;
   try {
-    const { state, queriedAs } = await fetchGameState();
+    const { state, perspectivePlayer } = await fetchGameState();
     gameError.textContent = '';
-    checkAiEliminations(getPlayerCounts(state, queriedAs));
-    renderState(state, queriedAs);
+    checkAiEliminations(getPlayerCounts(state, perspectivePlayer));
+    renderState(state, perspectivePlayer);
 
     if (!humanOut && state.current_turn === humanPlayer) {
       // Human's turn — wait for the player to act.
     } else {
-      void maybeRunAiTurns(state, queriedAs);
+      void maybeRunAiTurns(state, perspectivePlayer);
     }
   } catch (error) {
     gameError.textContent = error.message || 'Failed to load game state.';
@@ -273,17 +274,17 @@ async function syncMoveOutcome(previousState, previousQueriedAs, result, current
     : 'No new pairs.';
 
   try {
-    const { state, queriedAs } = await fetchGameState();
-    const playerCounts = getPlayerCounts(state, queriedAs);
+    const { state, perspectivePlayer } = await fetchGameState();
+    const playerCounts = getPlayerCounts(state, perspectivePlayer);
     checkAiEliminations(playerCounts);
-    renderState(state, queriedAs);
+    renderState(state, perspectivePlayer);
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
-    return { state, queriedAs, terminal: isTerminalCounts(playerCounts) };
+    return { state, perspectivePlayer, terminal: isTerminalCounts(playerCounts) };
   } catch (error) {
     // A non-terminal move should always be re-fetchable. If the backend state is gone,
     // only tolerate that on a terminal move and render the last known board from counts.
     if (!result.game_over) {
-      throw new Error(`Failed to fetch post-move state for non-terminal move: ${error.message || error}`);
+      throw new Error(`Failed to fetch post-move state for non-terminal move: ${error.message || String(error)}`);
     }
 
     const playerCounts = buildPostMoveCounts(
@@ -302,17 +303,17 @@ async function syncMoveOutcome(previousState, previousQueriedAs, result, current
       currentTurn: result.next_turn,
     });
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
-    return { state: previousState, queriedAs: previousQueriedAs, terminal: isTerminalCounts(playerCounts) };
+    return { state: previousState, perspectivePlayer: previousQueriedAs, terminal: isTerminalCounts(playerCounts) };
   }
 }
 
-async function maybeRunAiTurns(initialState, initialQueriedAs = humanPlayer) {
+async function maybeRunAiTurns(initialState, initialPerspectivePlayer = humanPlayer) {
   if (aiLoopRunning || gameEnded) return;
 
   aiLoopRunning = true;
   try {
     let currentState = initialState;
-    let currentQueriedAs = initialQueriedAs;
+    let currentPerspectivePlayer = initialPerspectivePlayer;
 
     while (!gameEnded) {
       // If it is the human's turn and the human is still active, hand control back.
@@ -321,25 +322,25 @@ async function maybeRunAiTurns(initialState, initialQueriedAs = humanPlayer) {
         // Defensive: humanOut is true but we have stale state that still shows the human
         // as the current turn (the backend skips eliminated players, so this is transient).
         // Re-fetch to get the actual next active player before continuing.
-        const { state: refreshed, queriedAs: refreshedAs } = await fetchGameState();
-        checkAiEliminations(getPlayerCounts(refreshed, refreshedAs));
-        renderState(refreshed, refreshedAs);
+        const { state: refreshed, perspectivePlayer: refreshedPerspectivePlayer } = await fetchGameState();
+        checkAiEliminations(getPlayerCounts(refreshed, refreshedPerspectivePlayer));
+        renderState(refreshed, refreshedPerspectivePlayer);
         currentState = refreshed;
-        currentQueriedAs = refreshedAs;
+        currentPerspectivePlayer = refreshedPerspectivePlayer;
         continue;
       }
 
       const aiPlayer = currentState.current_turn;
-      const computedTargetPlayer = getNextPlayerName(aiPlayer, currentState, currentQueriedAs);
+      const computedTargetPlayer = getNextPlayerName(aiPlayer, currentState, currentPerspectivePlayer);
       const result = await aiMove(gameId, aiPlayer);
       const reportedTargetPlayer = extractTargetFromAction(result.action);
       const targetPlayer = reportedTargetPlayer || computedTargetPlayer;
       if (!targetPlayer) {
         throw new Error('Could not determine target player for AI move.');
       }
-      const { state: newState, queriedAs: newQueriedAs, terminal } = await syncMoveOutcome(
+      const { state: newState, perspectivePlayer: newPerspectivePlayer, terminal } = await syncMoveOutcome(
         currentState,
-        currentQueriedAs,
+        currentPerspectivePlayer,
         result,
         aiPlayer,
         targetPlayer,
@@ -351,7 +352,7 @@ async function maybeRunAiTurns(initialState, initialQueriedAs = humanPlayer) {
       }
 
       currentState = newState;
-      currentQueriedAs = newQueriedAs;
+      currentPerspectivePlayer = newPerspectivePlayer;
     }
   } catch (error) {
     gameError.textContent = error.message || 'AI move failed.';
