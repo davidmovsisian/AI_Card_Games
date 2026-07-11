@@ -72,6 +72,7 @@ function extractTargetFromAction(actionText) {
 function finishGame(message) {
   gameEnded = true;
   drawButton.disabled = true;
+  gameError.textContent = '';
   newGameButton.classList.remove('hidden');
   if (pollIntervalId) {
     clearInterval(pollIntervalId);
@@ -347,12 +348,12 @@ export function stopGameSession() {
   onNewGame = null;
 }
 
-export function startGameSession({ gameId: nextGameId, humanPlayer: nextHumanPlayer, aiNames: nextAiNames, onNewGame: onNewGameCallback }) {
+export function startGameSession({ gameId: initialGameId, humanPlayer: initialHumanPlayer, aiNames: initialAiNames, onNewGame: onNewGameCallback }) {
   stopGameSession();
 
-  gameId = nextGameId || '';
-  humanPlayer = nextHumanPlayer || '';
-  aiNames = Array.isArray(nextAiNames) ? nextAiNames : [];
+  gameId = initialGameId || '';
+  humanPlayer = initialHumanPlayer || '';
+  aiNames = Array.isArray(initialAiNames) ? initialAiNames : [];
   onNewGame = typeof onNewGameCallback === 'function' ? onNewGameCallback : null;
 
   if (!gameId || !humanPlayer) {

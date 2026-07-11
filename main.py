@@ -21,6 +21,8 @@ app.add_middleware(
 
 ai_service = AIService()
 FRONTEND_DIR = Path(__file__).parent / "frontend"
+if not FRONTEND_DIR.is_dir():
+    raise RuntimeError(f"Frontend directory not found: {FRONTEND_DIR}")
 app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
 # Global in-memory storage for active games (use Redis/Database for production scale)
@@ -43,7 +45,7 @@ class MoveResponse(BaseModel):
     next_turn: str
     player_active: Optional[bool] = None
     game_over: Optional[bool] = None
-    ai_commentary: str = None  # Optional, only for AI moves
+    ai_commentary: Optional[str] = None  # Optional, only for AI moves
 
 @app.get("/", include_in_schema=False)
 async def frontend_root():

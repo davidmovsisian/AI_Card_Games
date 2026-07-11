@@ -14,7 +14,6 @@ function showSetupView() {
   stopGameSession();
   gameView.classList.add('hidden');
   setupView.classList.remove('hidden');
-  errorEl.textContent = '';
 }
 
 function showGameView() {
