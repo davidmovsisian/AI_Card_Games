@@ -1,14 +1,11 @@
-import { createGame, getApiBaseUrl, joinGame, setApiBaseUrl, startGame } from './api.js';
+import { createGame, joinGame, startGame } from './api.js';
 import { startGameSession, stopGameSession } from './game.js';
 
 const setupForm = document.getElementById('setup-form');
 const errorEl = document.getElementById('setup-error');
-const apiBaseInput = document.getElementById('api-base-url');
 const startButton = document.getElementById('start-button');
 const setupView = document.getElementById('setup-view');
 const gameView = document.getElementById('game-view');
-
-apiBaseInput.value = getApiBaseUrl();
 
 function showSetupView() {
   stopGameSession();
@@ -30,7 +27,6 @@ setupForm.addEventListener('submit', async (event) => {
   const playerName = String(formData.get('playerName') || '').trim();
   const aiCount = Number(formData.get('aiCount') || 1);
   const houseRules = String(formData.get('houseRules') || '').trim();
-  const apiBaseUrl = String(formData.get('apiBaseUrl') || '').trim();
 
   if (!playerName) {
     errorEl.textContent = 'Please enter your player name.';
@@ -39,8 +35,6 @@ setupForm.addEventListener('submit', async (event) => {
   }
 
   try {
-    setApiBaseUrl(apiBaseUrl);
-
     const game = await createGame(houseRules);
     const gameId = game.game_id;
 

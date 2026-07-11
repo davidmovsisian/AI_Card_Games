@@ -1,3 +1,4 @@
+import random
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 import uvicorn
@@ -43,7 +44,8 @@ class MoveResponse(BaseModel):
     action: str
     details: Dict[str, Any]
     next_turn: str
-    player_active: Optional[bool] = None
+    player_active: Optional[bool] = None,
+    target_player_active: Optional[bool] = None,
     game_over: Optional[bool] = None
     ai_commentary: Optional[str] = None  # Optional, only for AI moves
 
@@ -114,14 +116,14 @@ async def get_player_state(game_id: str, player_name: str):
 @app.post("/game/{game_id}/move/human")
 async def human_move(game_id: str, player_name: str, move: HumanMoveRequest):
     engine = ACTIVE_GAMES[game_id]
-    current_turn_player = list(engine.players.keys())[engine.current_turn_index]
+    current_player = list(engine.players.keys())[engine.current_turn_index]
     
-    if current_turn_player != player_name:
+    if current_player != player_name:
         raise HTTPException(status_code=400, detail=f"It is not {player_name}'s turn.")
 
     target_player = engine.get_next_player(player_name)
     try:
-        result = engine.execute_draw(player_name, target_player, move.card_index)
+        result = engine.execute_draw(current_player, target_player, move.card_index)
 
         if len(engine.players) == 1:
             print(f"Game {game_id} is over. Last player: {list(engine.players.keys())[0]}")
@@ -129,9 +131,10 @@ async def human_move(game_id: str, player_name: str, move: HumanMoveRequest):
 
         return MoveResponse(
             status="success",
-            action=f"{player_name} drew a card from {target_player}",
+            action=f"{current_player} drew a card from {target_player}",
             details=result,
-            player_active = True if player_name in engine.players else False,
+            player_active = current_player in engine.players,
+            target_player_active = target_player in engine.players,
             game_over = True if len(engine.players) == 1 else False,
             next_turn=list(engine.players.keys())[engine.current_turn_index],
         )
@@ -141,9 +144,9 @@ async def human_move(game_id: str, player_name: str, move: HumanMoveRequest):
 @app.post("/game/{game_id}/move/ai")
 async def ai_move(game_id: str, ai_player_name: str):
     engine = ACTIVE_GAMES[game_id]
-    current_turn_player = list(engine.players.keys())[engine.current_turn_index]
+    current_player = list(engine.players.keys())[engine.current_turn_index]
     
-    if current_turn_player != ai_player_name:
+    if current_player != ai_player_name:
         raise HTTPException(status_code=400, detail=f"It is not {ai_player_name}'s turn.")
     
     target_player = engine.get_next_player(ai_player_name)
@@ -161,16 +164,17 @@ async def ai_move(game_id: str, ai_player_name: str):
         )
         
         # Execute the move the AI requested
-        result = engine.execute_draw(ai_player_name, target_player, ai_decision.chosen_index)
+        result = engine.execute_draw(current_player, target_player, ai_decision.chosen_index)
         
         if len(engine.players) == 1:
             ACTIVE_GAMES.pop(game_id)  # Clean up finished game
 
         return MoveResponse(
             status="success",
-            action=f"{ai_player_name} drew a card from {target_player}",
+            action=f"{current_player} drew a card from {target_player}",
             details=result,
-            player_active = True if ai_player_name in engine.players else False,
+            player_active = current_player in engine.players,
+            target_player_active = target_player in engine.players,
             game_over = True if len(engine.players) == 1 else False,
             next_turn=list(engine.players.keys())[engine.current_turn_index],
             ai_commentary=ai_decision.roleplay_comment

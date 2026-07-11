@@ -1,30 +1,12 @@
-const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
-const API_BASE_STORAGE_KEY = 'oldMaidApiBase';
+const API_BASE = 'http://127.0.0.1:8000';
 
-export function getApiBaseUrl() {
-  return localStorage.getItem(API_BASE_STORAGE_KEY) || DEFAULT_API_BASE;
-}
-
-export function setApiBaseUrl(url) {
-  const normalized = (url || '').trim().replace(/\/$/, '');
-  if (normalized) {
-    let parsed;
-    try {
-      parsed = new URL(normalized);
-    } catch {
-      throw new Error('API Base URL must be a valid absolute URL (for example: http://127.0.0.1:8000).');
-    }
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      throw new Error('API Base URL must use http or https.');
-    }
-    localStorage.setItem(API_BASE_STORAGE_KEY, normalized);
-  } else {
-    localStorage.removeItem(API_BASE_STORAGE_KEY);
-  }
+function buildUrl(path, params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return qs ? `${path}?${qs}` : path;
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
@@ -66,16 +48,15 @@ export function getPlayerState(gameId, playerName) {
 }
 
 export function humanMove(gameId, playerName, cardIndex) {
-  const params = new URLSearchParams({ player_name: playerName });
-  return request(`/game/${encodeURIComponent(gameId)}/move/human?${params.toString()}`, {
-    method: 'POST',
-    body: JSON.stringify({ card_index: cardIndex }),
-  });
+  return request(
+    buildUrl(`/game/${encodeURIComponent(gameId)}/move/human`, { player_name: playerName }),
+    { method: 'POST', body: JSON.stringify({ card_index: cardIndex }) },
+  );
 }
 
 export function aiMove(gameId, aiPlayerName) {
-  const params = new URLSearchParams({ ai_player_name: aiPlayerName });
-  return request(`/game/${encodeURIComponent(gameId)}/move/ai?${params.toString()}`, {
-    method: 'POST',
-  });
+  return request(
+    buildUrl(`/game/${encodeURIComponent(gameId)}/move/ai`, { ai_player_name: aiPlayerName }),
+    { method: 'POST' },
+  );
 }
