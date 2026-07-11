@@ -84,6 +84,14 @@ function findCardIndex(hand = [], card = null) {
   return hand.findIndex((current) => current.rank === card.rank && current.suit === card.suit);
 }
 
+function isValidCard(card = null) {
+  return Boolean(card?.rank && card?.suit);
+}
+
+function removeOneVisibleCardFallback(hand = []) {
+  return hand.slice(0, -1);
+}
+
 // Builds a best-effort post-move state when terminal cleanup removes backend state
 // before the frontend can re-fetch it. Uses move details to reflect hand/count changes
 // first, then callers finalize game-over UI.
@@ -102,7 +110,7 @@ function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, re
 
   if (previousPerspectivePlayer === currentPlayer) {
     const drawnCard = result.details?.drawn_card_visible_to_drawer;
-    if (drawnCard?.rank && drawnCard?.suit) {
+    if (isValidCard(drawnCard)) {
       nextState.your_hand.push(drawnCard);
     }
     nextState.your_hand = removePairsFromVisibleHand(nextState.your_hand);
@@ -112,17 +120,17 @@ function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, re
     }
 
     const drawnCard = result.details?.drawn_card_visible_to_drawer;
-    if (drawnCard?.rank && drawnCard?.suit) {
+    if (isValidCard(drawnCard)) {
       const drawnCardIndex = findCardIndex(nextState.your_hand, drawnCard);
       if (drawnCardIndex >= 0) {
         nextState.your_hand.splice(drawnCardIndex, 1);
       } else {
         // If backend-provided drawn card cannot be matched in visible hand, still
         // remove one card so rendered counts remain consistent with move outcome.
-        nextState.your_hand = nextState.your_hand.slice(0, -1);
+        nextState.your_hand = removeOneVisibleCardFallback(nextState.your_hand);
       }
     } else {
-      nextState.your_hand = nextState.your_hand.slice(0, -1);
+      nextState.your_hand = removeOneVisibleCardFallback(nextState.your_hand);
     }
   }
 
