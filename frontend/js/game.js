@@ -268,7 +268,7 @@ async function refreshState() {
 // Fetches the authoritative post-move state when available, but falls back to a
 // counts-derived render if a terminal move caused the backend to remove the game
 // before the frontend could re-fetch it.
-async function syncMoveOutcome(previousState, previousQueriedAs, result, currentPlayer, targetPlayer) {
+async function syncMoveOutcome(previousState, previousPerspectivePlayer, result, currentPlayer, targetPlayer) {
   const summary = (result.details?.new_pairs_formed || []).length
     ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
     : 'No new pairs.';
@@ -284,12 +284,12 @@ async function syncMoveOutcome(previousState, previousQueriedAs, result, current
     // A non-terminal move should always be re-fetchable. If the backend state is gone,
     // only tolerate that on a terminal move and render the last known board from counts.
     if (!result.game_over) {
-      throw new Error(`Failed to fetch post-move state for non-terminal move: ${error.message || String(error)}`);
+      throw new Error(`Expected backend state to persist for non-terminal move, but post-move fetch failed: ${error.message || String(error)}`);
     }
 
     const playerCounts = buildPostMoveCounts(
       previousState,
-      previousQueriedAs,
+      previousPerspectivePlayer,
       currentPlayer,
       targetPlayer,
       result.details?.new_pairs_formed || [],
@@ -298,12 +298,12 @@ async function syncMoveOutcome(previousState, previousQueriedAs, result, current
     checkAiEliminations(playerCounts);
     // Only the count-based visuals matter in this terminal fallback render. The underlying
     // state object is pre-move, but the game ends immediately after this repaint.
-    renderState(previousState, previousQueriedAs, {
+    renderState(previousState, previousPerspectivePlayer, {
       playerCounts,
       currentTurn: result.next_turn,
     });
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
-    return { state: previousState, perspectivePlayer: previousQueriedAs, terminal: isTerminalCounts(playerCounts) };
+    return { state: previousState, perspectivePlayer: previousPerspectivePlayer, terminal: isTerminalCounts(playerCounts) };
   }
 }
 
