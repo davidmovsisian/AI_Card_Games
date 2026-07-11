@@ -3,9 +3,12 @@ from fastapi import FastAPI, HTTPException
 import uvicorn
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+from pathlib import Path
 from engine import GameEngine
 from ai_service import AIService
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Old Maid AI Server")
 app.add_middleware(
@@ -17,6 +20,10 @@ app.add_middleware(
 )
 
 ai_service = AIService()
+FRONTEND_DIR = Path(__file__).parent / "frontend"
+if not FRONTEND_DIR.is_dir():
+    raise RuntimeError(f"Frontend directory not found: {FRONTEND_DIR}")
+app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
 
 # Global in-memory storage for active games (use Redis/Database for production scale)
 ACTIVE_GAMES: Dict[str, GameEngine] = {}
@@ -38,7 +45,11 @@ class MoveResponse(BaseModel):
     next_turn: str
     player_active: Optional[bool] = None
     game_over: Optional[bool] = None
-    ai_commentary: str = None  # Optional, only for AI moves
+    ai_commentary: Optional[str] = None  # Optional, only for AI moves
+
+@app.get("/", include_in_schema=False)
+async def frontend_root():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 @app.post("/game/create")
 async def create_game(req: CreateGameRequest):

@@ -1,11 +1,25 @@
 import { createGame, getApiBaseUrl, joinGame, setApiBaseUrl, startGame } from './api.js';
+import { startGameSession, stopGameSession } from './game.js';
 
 const setupForm = document.getElementById('setup-form');
 const errorEl = document.getElementById('setup-error');
 const apiBaseInput = document.getElementById('api-base-url');
 const startButton = document.getElementById('start-button');
+const setupView = document.getElementById('setup-view');
+const gameView = document.getElementById('game-view');
 
 apiBaseInput.value = getApiBaseUrl();
+
+function showSetupView() {
+  stopGameSession();
+  gameView.classList.add('hidden');
+  setupView.classList.remove('hidden');
+}
+
+function showGameView() {
+  setupView.classList.add('hidden');
+  gameView.classList.remove('hidden');
+}
 
 setupForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -41,17 +55,13 @@ setupForm.addEventListener('submit', async (event) => {
 
     await startGame(gameId);
 
-    const params = new URLSearchParams({
-      game_id: gameId,
-      player_name: playerName,
-      ai_names: aiNames.join(','),
+    showGameView();
+    startGameSession({
+      gameId,
+      humanPlayer: playerName,
+      aiNames,
+      onNewGame: showSetupView,
     });
-
-    const gameUrl = `./game.html?${params.toString()}`;
-    const opened = window.open(gameUrl, '_blank');
-    if (!opened) {
-      window.location.href = gameUrl;
-    }
   } catch (error) {
     errorEl.textContent = error.message || 'Unable to start game.';
   } finally {
