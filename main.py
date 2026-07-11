@@ -111,7 +111,10 @@ async def human_move(game_id: str, player_name: str, move: HumanMoveRequest):
     target_player = engine.get_next_player(player_name)
     try:
         result = engine.execute_draw(player_name, target_player, move.card_index)
-        # check if player in players after the draw, if not, it means they were eliminated
+
+        if len(engine.players) == 1:
+            ACTIVE_GAMES.pop(game_id)  # Clean up finished game
+
         return MoveResponse(
             status="success",
             action=f"{player_name} drew a card from {target_player}",
@@ -134,28 +137,34 @@ async def ai_move(game_id: str, ai_player_name: str):
     target_player = engine.get_next_player(ai_player_name)
     target_card_count = len(engine.players[target_player].hand)
     
-    # Format AI hand cleanly for prompt context
-    ai_hand_serialized = [f"{c.rank} of {c.suit} ({c.color})" for c in engine.players[ai_player_name].hand]
-    
-    # Ask the LLM to make a structured move decision
-    ai_decision = await ai_service.get_ai_move(
-        ai_hand=ai_hand_serialized,
-        target_card_count=target_card_count,
-        house_rules=engine.house_rules
-    )
-    
-    # Execute the move the AI requested
-    result = engine.execute_draw(ai_player_name, target_player, ai_decision.chosen_index)
-    
-    return MoveResponse(
-        status="success",
-        action=f"{ai_player_name} drew a card from {target_player}",
-        details=result,
-        player_active = True if ai_player_name in engine.players else False,
-        game_over = True if len(engine.players) == 1 else False,
-        next_turn=list(engine.players.keys())[engine.current_turn_index],
-        ai_commentary=ai_decision.roleplay_comment
-    )
+    try:
+        # Format AI hand cleanly for prompt context
+        ai_hand_serialized = [f"{c.rank} of {c.suit} ({c.color})" for c in engine.players[ai_player_name].hand]
+        
+        # Ask the LLM to make a structured move decision
+        ai_decision = await ai_service.get_ai_move(
+            ai_hand=ai_hand_serialized,
+            target_card_count=target_card_count,
+            house_rules=engine.house_rules
+        )
+        
+        # Execute the move the AI requested
+        result = engine.execute_draw(ai_player_name, target_player, ai_decision.chosen_index)
+        
+        if len(engine.players) == 1:
+            ACTIVE_GAMES.pop(game_id)  # Clean up finished game
+
+        return MoveResponse(
+            status="success",
+            action=f"{ai_player_name} drew a card from {target_player}",
+            details=result,
+            player_active = True if ai_player_name in engine.players else False,
+            game_over = True if len(engine.players) == 1 else False,
+            next_turn=list(engine.players.keys())[engine.current_turn_index],
+            ai_commentary=ai_decision.roleplay_comment
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
