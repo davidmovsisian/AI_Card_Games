@@ -2,21 +2,17 @@
 
 ## Frontend (pure HTML/CSS/JS)
 
-A new vanilla frontend is available in `/frontend`.
+A vanilla frontend is available in `/frontend` and is served by FastAPI.
 
 ### Run locally
 
-1. Start the FastAPI backend (default `http://127.0.0.1:8000`):
+1. Start the app (backend APIs + frontend) with one command:
    ```bash
    python main.py
    ```
-2. In another terminal, start the frontend static server:
-   ```bash
-   node frontend/server.js
+2. Open:
    ```
-3. Open:
-   ```
-   http://127.0.0.1:5173
+   http://127.0.0.1:8000
    ```
 
 ### API base URL configuration
@@ -30,4 +26,5 @@ The value is saved in local storage and reused for future sessions.
 - Select 1, 2, or 3 AI players
 - Enter house rules
 - Start game
-- A new game page opens showing players, cards (AI cards hidden), and a game log
+- Setup view transitions in-place to game view in the same browser window
+- On game over, use **New Game** to return to setup and start fresh

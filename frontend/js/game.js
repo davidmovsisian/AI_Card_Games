@@ -1,17 +1,17 @@
 import { aiMove, getPlayerState, humanMove } from './api.js';
 
-const params = new URLSearchParams(window.location.search);
-const gameId = params.get('game_id') || '';
-const humanPlayer = params.get('player_name') || '';
-const aiNames = (params.get('ai_names') || '').split(',').map((v) => v.trim()).filter(Boolean);
-
 const turnIndicator = document.getElementById('turn-indicator');
 const playersArea = document.getElementById('players-area');
 const cardIndexInput = document.getElementById('card-index');
 const drawButton = document.getElementById('draw-button');
+const newGameButton = document.getElementById('new-game-button');
 const gameError = document.getElementById('game-error');
 const gameLog = document.getElementById('game-log');
 
+let gameId = '';
+let humanPlayer = '';
+let aiNames = [];
+let onNewGame = null;
 let latestState = null;
 let aiLoopRunning = false;
 let gameEnded = false;
@@ -72,6 +72,7 @@ function extractTargetFromAction(actionText) {
 function finishGame(message) {
   gameEnded = true;
   drawButton.disabled = true;
+  newGameButton.classList.remove('hidden');
   if (pollIntervalId) {
     clearInterval(pollIntervalId);
     pollIntervalId = null;
@@ -192,6 +193,7 @@ async function fetchGameState() {
 }
 
 async function refreshState() {
+  if (!gameId || !humanPlayer || gameEnded) return;
   try {
     const { state, queriedAs } = await fetchGameState();
     gameError.textContent = '';
@@ -311,20 +313,65 @@ drawButton.addEventListener('click', async () => {
   }
 });
 
-if (!gameId || !humanPlayer) {
-  gameError.textContent = 'Missing game context. Start from setup page.';
+newGameButton.addEventListener('click', () => {
+  if (typeof onNewGame === 'function') {
+    onNewGame();
+  }
+});
+
+function resetViewState() {
+  latestState = null;
+  aiLoopRunning = false;
+  gameEnded = false;
+  humanOut = false;
+  prevActiveAiSet = new Set();
+  turnIndicator.textContent = 'Loading...';
+  playersArea.innerHTML = '';
+  gameLog.innerHTML = '';
+  gameError.textContent = '';
   drawButton.disabled = true;
-} else {
+  cardIndexInput.value = '0';
+  cardIndexInput.max = '0';
+  newGameButton.classList.add('hidden');
+  if (pollIntervalId) {
+    clearInterval(pollIntervalId);
+    pollIntervalId = null;
+  }
+}
+
+export function stopGameSession() {
+  resetViewState();
+  gameId = '';
+  humanPlayer = '';
+  aiNames = [];
+  onNewGame = null;
+}
+
+export function startGameSession({ gameId: nextGameId, humanPlayer: nextHumanPlayer, aiNames: nextAiNames, onNewGame: onNewGameCallback }) {
+  stopGameSession();
+
+  gameId = nextGameId || '';
+  humanPlayer = nextHumanPlayer || '';
+  aiNames = Array.isArray(nextAiNames) ? nextAiNames : [];
+  onNewGame = typeof onNewGameCallback === 'function' ? onNewGameCallback : null;
+
+  if (!gameId || !humanPlayer) {
+    gameError.textContent = 'Missing game context. Start from setup page.';
+    drawButton.disabled = true;
+    return;
+  }
+
   void refreshState();
   pollIntervalId = window.setInterval(() => {
     if (!aiLoopRunning && !gameEnded) {
       void refreshState();
     }
   }, 2000);
-  window.addEventListener('beforeunload', () => {
-    if (pollIntervalId) {
-      clearInterval(pollIntervalId);
-      pollIntervalId = null;
-    }
-  });
 }
+
+window.addEventListener('beforeunload', () => {
+  if (pollIntervalId) {
+    clearInterval(pollIntervalId);
+    pollIntervalId = null;
+  }
+});

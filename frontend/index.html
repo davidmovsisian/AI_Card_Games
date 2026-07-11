@@ -4,32 +4,56 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Old Maid - Setup</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="/frontend/style.css" />
 </head>
 <body>
   <main class="container">
-    <h1>Old Maid Setup</h1>
-    <form id="setup-form" class="panel">
-      <label for="player-name">Your Name</label>
-      <input id="player-name" name="playerName" type="text" required maxlength="40" />
+    <section id="setup-view">
+      <h1>Old Maid Setup</h1>
+      <form id="setup-form" class="panel">
+        <label for="player-name">Your Name</label>
+        <input id="player-name" name="playerName" type="text" required maxlength="40" />
 
-      <label for="ai-count">AI Players</label>
-      <select id="ai-count" name="aiCount">
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-      </select>
+        <label for="ai-count">AI Players</label>
+        <select id="ai-count" name="aiCount">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
 
-      <label for="house-rules">House Rules</label>
-      <textarea id="house-rules" name="houseRules" rows="4" placeholder="Optional custom rules"></textarea>
+        <label for="house-rules">House Rules</label>
+        <textarea id="house-rules" name="houseRules" rows="4" placeholder="Optional custom rules"></textarea>
 
-      <label for="api-base-url">API Base URL</label>
-      <input id="api-base-url" name="apiBaseUrl" type="text" placeholder="http://127.0.0.1:8000" />
+        <label for="api-base-url">API Base URL</label>
+        <input id="api-base-url" name="apiBaseUrl" type="text" placeholder="http://127.0.0.1:8000" />
 
-      <button id="start-button" type="submit">Start Game</button>
-      <p id="setup-error" class="error" role="alert"></p>
-    </form>
+        <button id="start-button" type="submit">Start Game</button>
+        <p id="setup-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="game-view" class="hidden">
+      <div class="game-layout">
+        <section class="panel">
+          <h1>Old Maid Game</h1>
+          <p id="turn-indicator">Loading...</p>
+          <div id="players-area"></div>
+          <div class="actions">
+            <label for="card-index">Pick card index from next player</label>
+            <input id="card-index" type="number" min="0" step="1" value="0" />
+            <button id="draw-button" type="button">Draw Card</button>
+            <button id="new-game-button" type="button" class="hidden">New Game</button>
+          </div>
+          <p id="game-error" class="error" role="alert"></p>
+        </section>
+
+        <section class="panel log-panel">
+          <h2>Game Log</h2>
+          <ul id="game-log"></ul>
+        </section>
+      </div>
+    </section>
   </main>
-  <script type="module" src="./js/setup.js"></script>
+  <script type="module" src="/frontend/js/setup.js"></script>
 </body>
 </html>

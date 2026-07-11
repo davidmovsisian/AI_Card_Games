@@ -15,6 +15,10 @@ body {
   padding: 24px;
 }
 
+.hidden {
+  display: none;
+}
+
 .panel {
   background: #fff;
   border: 1px solid #d1d5db;
@@ -52,6 +56,11 @@ button {
 button:disabled {
   cursor: not-allowed;
   background: #93c5fd;
+}
+
+#new-game-button {
+  margin-top: 8px;
+  background: #059669;
 }
 
 .game-layout {
