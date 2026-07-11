@@ -83,9 +83,14 @@ function removePairsFromVisibleHand(hand = []) {
 // before the frontend can re-fetch it. Uses move details to reflect hand/count changes
 // first, then callers finalize game-over UI.
 function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, result, currentPlayer, targetPlayer) {
+  const previousVisibleHand = previousState?.your_hand;
+  if (!Array.isArray(previousVisibleHand)) {
+    throw new Error('Expected visible hand in fallback post-move state.');
+  }
+
   const nextState = {
     ...previousState,
-    your_hand: Array.isArray(previousState?.your_hand) ? [...previousState.your_hand] : [],
+    your_hand: [...previousVisibleHand],
     opponents_card_counts: { ...(previousState?.opponents_card_counts || {}) },
     current_turn: result.next_turn,
   };
@@ -97,9 +102,19 @@ function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, re
     }
     nextState.your_hand = removePairsFromVisibleHand(nextState.your_hand);
   } else if (previousPerspectivePlayer === targetPlayer && nextState.your_hand.length > 0) {
-    // Backend does not reveal which specific index was drawn to the target player,
-    // so remove one card to reflect count change while preserving hidden-card rules.
-    nextState.your_hand = nextState.your_hand.slice(0, -1);
+    const drawnCard = result.details?.drawn_card_visible_to_drawer;
+    if (drawnCard?.rank && drawnCard?.suit) {
+      const drawnCardIndex = nextState.your_hand.findIndex(
+        (card) => card.rank === drawnCard.rank && card.suit === drawnCard.suit,
+      );
+      if (drawnCardIndex >= 0) {
+        nextState.your_hand.splice(drawnCardIndex, 1);
+      } else {
+        nextState.your_hand = nextState.your_hand.slice(0, -1);
+      }
+    } else {
+      nextState.your_hand = nextState.your_hand.slice(0, -1);
+    }
   }
 
   return nextState;
