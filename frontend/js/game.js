@@ -40,6 +40,8 @@ function getPlayerCounts(state, queriedAs = humanPlayer) {
   return counts;
 }
 
+// Derives post-move card counts from the pre-move state by applying the draw transfer
+// and removing two cards for each newly formed pair in the current player's hand.
 function buildPostMoveCounts(state, queriedAs, currentPlayer, targetPlayer, newPairsFormed = []) {
   const counts = getPlayerCounts(state, queriedAs);
   const pairCount = Array.isArray(newPairsFormed) ? newPairsFormed.length : 0;
@@ -59,7 +61,7 @@ function isTerminalCounts(playerCounts) {
 }
 
 function formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts) {
-  return `Current: ${currentPlayer} | Picked from: ${targetPlayer} | ${summary} | Cards after move: ${currentPlayer}=${Number(playerCounts[currentPlayer] || 0)}, ${targetPlayer}=${Number(playerCounts[targetPlayer] || 0)}`;
+  return `Current: ${currentPlayer} | Picked from: ${targetPlayer} | ${summary} | Cards after move: ${currentPlayer}=${playerCounts[currentPlayer] || 0}, ${targetPlayer}=${playerCounts[targetPlayer] || 0}`;
 }
 
 // Returns the set of AI players that currently have cards, based on player counts.
@@ -248,6 +250,9 @@ async function refreshState() {
   }
 }
 
+// Fetches the authoritative post-move state when available, but falls back to a
+// counts-derived render if a terminal move caused the backend to remove the game
+// before the frontend could re-fetch it.
 async function syncMoveOutcome(previousState, previousQueriedAs, result, currentPlayer, targetPlayer) {
   const summary = (result.details?.new_pairs_formed || []).length
     ? `New pairs: ${result.details.new_pairs_formed.join(', ')}`
