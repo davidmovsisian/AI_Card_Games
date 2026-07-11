@@ -124,6 +124,7 @@ async def human_move(game_id: str, player_name: str, move: HumanMoveRequest):
         result = engine.execute_draw(player_name, target_player, move.card_index)
 
         if len(engine.players) == 1:
+            print(f"Game {game_id} is over. Last player: {list(engine.players.keys())[0]}")
             ACTIVE_GAMES.pop(game_id)  # Clean up finished game
 
         return MoveResponse(
