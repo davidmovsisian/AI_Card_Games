@@ -145,7 +145,8 @@ function renderState(state, queriedAs = humanPlayer, options = {}) {
       empty.textContent = '(Eliminated)';
       cards.appendChild(empty);
     } else if (playerName === humanPlayer && queriedAs === humanPlayer) {
-      // This is the player we queried as — their cards are in state.your_hand.
+      // Only the human player's own perspective should ever reveal face-up cards.
+      // If queriedAs is an AI, that AI hand also lives in state.your_hand but must stay hidden.
       for (const card of state.your_hand || []) {
         const cardEl = document.createElement('div');
         cardEl.className = 'card';
@@ -260,6 +261,8 @@ async function syncMoveOutcome(previousState, previousQueriedAs, result, current
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
     return { state, queriedAs, terminal: isTerminalCounts(playerCounts) };
   } catch (error) {
+    // A non-terminal move should always be re-fetchable. If the backend state is gone,
+    // only tolerate that on a terminal move and render the last known board from counts.
     if (!result.game_over) {
       throw error;
     }
