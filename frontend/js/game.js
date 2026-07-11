@@ -58,6 +58,85 @@ function buildPostMoveCounts(state, perspectivePlayer, currentPlayer, targetPlay
   return counts;
 }
 
+// Mirrors backend pair-removal behavior for a visible hand snapshot by rank:
+// every full pair is removed, and one card remains when a rank count is odd.
+function removePairsFromVisibleHand(hand = []) {
+  const rankGroups = new Map();
+  for (const card of hand) {
+    if (!rankGroups.has(card.rank)) {
+      rankGroups.set(card.rank, []);
+    }
+    rankGroups.get(card.rank).push(card);
+  }
+
+  const nextHand = [];
+  for (const cards of rankGroups.values()) {
+    if (cards.length % 2 === 1) {
+      nextHand.push(cards[cards.length - 1]);
+    }
+  }
+
+  return nextHand;
+}
+
+function findCardIndex(hand = [], card = null) {
+  if (!card?.rank || !card?.suit) return -1;
+  return hand.findIndex((current) => current.rank === card.rank && current.suit === card.suit);
+}
+
+function isValidCard(card = null) {
+  return Boolean(card?.rank && card?.suit);
+}
+
+function removeOneVisibleCardFallback(hand = []) {
+  return hand.slice(0, -1);
+}
+
+// Builds a best-effort post-move state when terminal cleanup removes backend state
+// before the frontend can re-fetch it. Uses move details to reflect hand/count changes
+// first, then callers finalize game-over UI.
+function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, result, currentPlayer, targetPlayer) {
+  const previousVisibleHand = previousState?.your_hand;
+  if (!Array.isArray(previousVisibleHand)) {
+    throw new Error('Expected visible hand in fallback post-move state.');
+  }
+
+  const nextState = {
+    ...previousState,
+    your_hand: [...previousVisibleHand],
+    opponents_card_counts: { ...(previousState?.opponents_card_counts || {}) },
+    current_turn: result.next_turn,
+  };
+
+  if (previousPerspectivePlayer === currentPlayer) {
+    const drawnCard = result.details?.drawn_card_visible_to_drawer;
+    if (isValidCard(drawnCard)) {
+      nextState.your_hand.push(drawnCard);
+    }
+    nextState.your_hand = removePairsFromVisibleHand(nextState.your_hand);
+  } else if (previousPerspectivePlayer === targetPlayer) {
+    if (nextState.your_hand.length === 0) {
+      throw new Error('Expected target visible hand to contain a drawable card in fallback state.');
+    }
+
+    const drawnCard = result.details?.drawn_card_visible_to_drawer;
+    if (isValidCard(drawnCard)) {
+      const drawnCardIndex = findCardIndex(nextState.your_hand, drawnCard);
+      if (drawnCardIndex >= 0) {
+        nextState.your_hand.splice(drawnCardIndex, 1);
+      } else {
+        // If backend-provided drawn card cannot be matched in visible hand, still
+        // remove one card so rendered counts remain consistent with move outcome.
+        nextState.your_hand = removeOneVisibleCardFallback(nextState.your_hand);
+      }
+    } else {
+      nextState.your_hand = removeOneVisibleCardFallback(nextState.your_hand);
+    }
+  }
+
+  return nextState;
+}
+
 function hasCards(playerCounts, playerName) {
   return Number(playerCounts?.[playerName] || 0) > 0;
 }
@@ -279,7 +358,7 @@ async function syncMoveOutcome(previousState, previousPerspectivePlayer, result,
     checkAiEliminations(playerCounts);
     renderState(state, perspectivePlayer);
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
-    return { state, perspectivePlayer, terminal: isTerminalCounts(playerCounts) };
+    return { state, perspectivePlayer, gameOver: Boolean(result.game_over) };
   } catch (error) {
     // A non-terminal move should always be re-fetchable. If the backend state is gone,
     // only tolerate that on a terminal move and render the last known board from counts.
@@ -295,15 +374,23 @@ async function syncMoveOutcome(previousState, previousPerspectivePlayer, result,
       result.details?.new_pairs_formed || [],
     );
 
+    const fallbackState = buildFallbackPostMoveState(
+      previousState,
+      previousPerspectivePlayer,
+      result,
+      currentPlayer,
+      targetPlayer,
+    );
+
     checkAiEliminations(playerCounts);
     // Only the count-based visuals matter in this terminal fallback render. The underlying
-    // state object is pre-move, but the game ends immediately after this repaint.
-    renderState(previousState, previousPerspectivePlayer, {
+    // state is synthesized from move details so pair removal/count changes are visible first.
+    renderState(fallbackState, previousPerspectivePlayer, {
       playerCounts,
       currentTurn: result.next_turn,
     });
     addLog(formatMoveLog(currentPlayer, targetPlayer, summary, playerCounts));
-    return { state: previousState, perspectivePlayer: previousPerspectivePlayer, terminal: isTerminalCounts(playerCounts) };
+    return { state: fallbackState, perspectivePlayer: previousPerspectivePlayer, gameOver: Boolean(result.game_over) };
   }
 }
 
@@ -338,7 +425,7 @@ async function maybeRunAiTurns(initialState, initialPerspectivePlayer = humanPla
       if (!targetPlayer) {
         throw new Error('Could not determine target player for AI move.');
       }
-      const { state: newState, perspectivePlayer: newPerspectivePlayer, terminal } = await syncMoveOutcome(
+      const { state: newState, perspectivePlayer: newPerspectivePlayer, gameOver } = await syncMoveOutcome(
         currentState,
         currentPerspectivePlayer,
         result,
@@ -346,7 +433,7 @@ async function maybeRunAiTurns(initialState, initialPerspectivePlayer = humanPla
         targetPlayer,
       );
 
-      if (terminal) {
+      if (gameOver) {
         finishGame('Game over.');
         break;
       }
@@ -375,7 +462,7 @@ drawButton.addEventListener('click', async () => {
     const cardIndex = Number(cardIndexInput.value);
 
     const result = await humanMove(gameId, humanPlayer, cardIndex);
-    const { terminal } = await syncMoveOutcome(
+    const { gameOver } = await syncMoveOutcome(
       latestState,
       humanPlayer,
       result,
@@ -383,7 +470,7 @@ drawButton.addEventListener('click', async () => {
       drawFromPlayer,
     );
 
-    if (terminal) {
+    if (gameOver) {
       finishGame('Game over.');
       return;
     }
