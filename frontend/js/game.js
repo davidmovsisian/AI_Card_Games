@@ -58,6 +58,8 @@ function buildPostMoveCounts(state, perspectivePlayer, currentPlayer, targetPlay
   return counts;
 }
 
+// Mirrors backend pair-removal behavior for a visible hand snapshot by rank:
+// every full pair is removed, and one card remains when a rank count is odd.
 function removePairsFromVisibleHand(hand = []) {
   const rankGroups = new Map();
   for (const card of hand) {
@@ -77,6 +79,9 @@ function removePairsFromVisibleHand(hand = []) {
   return nextHand;
 }
 
+// Builds a best-effort post-move state when terminal cleanup removes backend state
+// before the frontend can re-fetch it. Uses move details to reflect hand/count changes
+// first, then callers finalize game-over UI.
 function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, result, currentPlayer, targetPlayer) {
   const nextState = {
     ...previousState,
@@ -92,6 +97,8 @@ function buildFallbackPostMoveState(previousState, previousPerspectivePlayer, re
     }
     nextState.your_hand = removePairsFromVisibleHand(nextState.your_hand);
   } else if (previousPerspectivePlayer === targetPlayer && nextState.your_hand.length > 0) {
+    // Backend does not reveal which specific index was drawn to the target player,
+    // so remove one card to reflect count change while preserving hidden-card rules.
     nextState.your_hand = nextState.your_hand.slice(0, -1);
   }
 
