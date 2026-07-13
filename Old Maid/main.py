@@ -1,4 +1,3 @@
-import random
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 import uvicorn
@@ -83,7 +82,7 @@ async def start_game(game_id: str):
     if len(engine.players) < 2:
         engine.add_player("AI_Opponent", player_type="ai")  # Add an AI opponent if only one human player
     
-    engine._initialize_game()
+    engine.initialize_game()
     
     return {
         "status": "Game started",

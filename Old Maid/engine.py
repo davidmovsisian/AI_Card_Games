@@ -77,7 +77,7 @@ class GameEngine:
 
         self.current_turn_index = list(self.players.keys()).index(next_player)
 
-    def _initialize_game(self):
+    def initialize_game(self):
         # create deck of cards
         suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
         ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'K', 'A']
