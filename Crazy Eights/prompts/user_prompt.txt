@@ -10,4 +10,4 @@ Active Suit:
 Make your choice strategically:
 1. If you have a playable card in your hand, set `use_draw_pile` to false and provide the `chosen_index` of the card you want to PLAY. If you choose an 8, also specify a strategic `declared_suit`. If you do NOT play an 8, leave `declared_suit` as null.
 2. If you have absolutely NO playable cards in your hand, you cannot play. Set `use_draw_pile` to true (the `chosen_index` will be ignored) so you can DRAW from the deck.
-3. Generate a fun comment based on the house rules and provide it in `roleplay_comment`. if house rules is not provided leave `roleplay_comment` as null.
+3. Generate a fun comment based on the house rules and return in `roleplay_comment`. if house rules is empty leave `roleplay_comment` as null.

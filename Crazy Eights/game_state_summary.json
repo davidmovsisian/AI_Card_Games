@@ -1,57 +1,49 @@
 {
   "action": "ai_turn",
   "state": {
-    "current_player": "AI_Opponent",
+    "current_player": "AI_1",
     "top_card": {
-      "suit": "Hearts",
-      "rank": "4"
+      "suit": "Clubs",
+      "rank": "10"
     },
-    "active_suit": "Hearts",
-    "winner": "AI_Opponent",
+    "active_suit": "Clubs",
+    "winner": "AI_1",
     "players": {
       "David": {
         "type": "human",
-        "hand_count": 9,
+        "hand_count": 7,
         "hand": [
           {
             "suit": "Hearts",
-            "rank": "9"
-          },
-          {
-            "suit": "Hearts",
-            "rank": "K"
-          },
-          {
-            "suit": "Hearts",
-            "rank": "J"
-          },
-          {
-            "suit": "Clubs",
-            "rank": "J"
-          },
-          {
-            "suit": "Spades",
-            "rank": "K"
-          },
-          {
-            "suit": "Hearts",
-            "rank": "Q"
-          },
-          {
-            "suit": "Spades",
-            "rank": "J"
-          },
-          {
-            "suit": "Hearts",
-            "rank": "A"
+            "rank": "4"
           },
           {
             "suit": "Clubs",
             "rank": "5"
+          },
+          {
+            "suit": "Hearts",
+            "rank": "10"
+          },
+          {
+            "suit": "Clubs",
+            "rank": "A"
+          },
+          {
+            "suit": "Clubs",
+            "rank": "J"
+          },
+          {
+            "suit": "Clubs",
+            "rank": "2"
+          },
+          {
+            "suit": "Spades",
+            "rank": "4"
           }
         ]
       },
-      "AI_Opponent": {
+      "AI_1": {
         "type": "ai",
         "hand_count": 0,
         "hand": "HIDDEN"

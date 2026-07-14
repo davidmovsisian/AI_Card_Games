@@ -146,6 +146,7 @@ function renderHumanHand(state) {
   humanHandEl.innerHTML = '';
   selectedIndex = null;
   playButton.disabled = true;
+  drawButton.disabled = false;
 
   const playerData = state.players[humanPlayer];
   if (!playerData || playerData.hand === 'HIDDEN' || !Array.isArray(playerData.hand)) {
@@ -375,7 +376,9 @@ drawButton.addEventListener('click', async () => {
     }
   } catch (err) {
     gameError.textContent = err.message || 'Failed to draw card.';
+    // RE-ENABLE BOTH BUTTONS ON FAILURE:
     drawButton.disabled = false;
+    playButton.disabled = selectedIndex === null; // Keep disabled unless a card was active
   }
 });
 
