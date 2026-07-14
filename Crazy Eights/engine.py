@@ -1,5 +1,5 @@
 import random
-from typing import List, Tuple, Dict, Optional
+from typing import List, Dict, Optional
 
 class Card:
     def __init__(self, suit: str, rank: str):
@@ -48,11 +48,11 @@ class GameEngine:
         
         self.draw_pile = deck  # Remaining cards become the draw pile
 
-        initial_card = self.draw_pile.top() # Initial card of the discard pile
-        while initial_card == '8':  # Ensure the top card is not an '8'
+        initial_card = self.draw_pile.pop() # Initial card of the discard pile
+        while initial_card.rank == '8':  # Ensure the top card is not an '8'
             self.draw_pile.insert(0, initial_card)
             random.shuffle(self.draw_pile)
-            initial_card = self.draw_pile.top()
+            initial_card = self.draw_pile.pop()
 
         self.discard_pile.append(initial_card)
         self.declared_suit = None

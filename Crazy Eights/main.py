@@ -1,14 +1,21 @@
 from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import Dict
 from pathlib import Path
-from engine import GameEngine, Card, Player
+from engine import GameEngine
 from ai_service import AIService
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from models import (
+    CreateGameRequest,
+    JoinGameRequest,
+    PlayCardRequest,
+    GameStateSummary,
+    CardModel,
+    PlayerModel
+)
 
 app = FastAPI(title="Crazy Eights AI Server")
 app.add_middleware(
@@ -27,25 +34,6 @@ app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend"
 
 ACTIVE_GAMES: Dict[str, GameEngine] = {}
 
-class CreateGameRequest(BaseModel):
-    house_rules: str
-
-class JoinGameRequest(BaseModel):
-    player_name: str
-    player_type: str = "human"  # or "ai"
-
-class PlayCardRequest(BaseModel):
-    player_name: str
-    card_index: int
-    declared_suit: Optional[str] = None
-
-class GameStateSummary(BaseModel):
-    current_player: str
-    top_card: Card
-    active_suit: str
-    winner: Optional[str] = None
-    players: Dict[str, Player]
-
 @app.get("/", include_in_schema=False)
 async def frontend_root():
     return FileResponse(FRONTEND_DIR / "index.html")
@@ -57,6 +45,16 @@ async def create_game(req: CreateGameRequest):
     ACTIVE_GAMES[game_id] = engine
     
     return {"status": "Game created", "game_id": game_id}
+
+@app.get("/game/{game_id}/state")
+def get_state(game_id: str):
+    if game_id not in ACTIVE_GAMES:
+        raise HTTPException(status_code=404, detail="Game not found.")
+    game = ACTIVE_GAMES[game_id]
+    if not game:
+        raise HTTPException(status_code=400, detail="Game not initialized. Call /start first.")
+    
+    return get_game_state_summary(game)
 
 @app.post("/game/{game_id}/join_game")
 async def join_game(game_id: str, req: JoinGameRequest):
@@ -102,7 +100,7 @@ async def play_card(game_id: str, payload: PlayCardRequest):
         game.play_card(payload.player_name, payload.card_index, payload.declared_suit)
         return {
             "message": "Card played successfully.", 
-            "state": get_game_state_summary()}
+            "state": get_game_state_summary(game)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -121,7 +119,7 @@ def draw_card(game_id: str, player_name: str):
         return {
             "message": "Drawing process complete.",
             "drawn_cards": drawn_cards,
-            "state": get_game_state_summary()
+            "state": get_game_state_summary(game)
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -176,15 +174,15 @@ async def ai_turn(game_id: str, ai_player_name: str):
 def get_game_state_summary(game: GameEngine) -> GameStateSummary:
     return GameStateSummary(
         current_player=game.current_player_name,
-        top_card=Card(suit=game.top_card.suit, rank=game.top_card.rank),
+        top_card=CardModel(suit=game.top_card.suit, rank=game.top_card.rank),
         active_suit=game.active_suit,
         winner=game.winner,
         players={
-            name: Player(
+            name: PlayerModel(
                 type=p.player_type,
                 hand_count=len(p.hand),
                 # only reveal the hand of the current human player for privacy
-                hand=[Card(suit=c.suit, rank=c.rank) for c in p.hand] 
+                hand=[CardModel(suit=c.suit, rank=c.rank) for c in p.hand] 
                     if p.player_type == "human" and p.name == game.current_player_name 
                     else "HIDDEN"
             ) for name, p in game.players.items()
