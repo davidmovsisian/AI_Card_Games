@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crazy Eights</title>
+  <link rel="stylesheet" href="/frontend/style.css" />
+</head>
+<body>
+  <main class="container">
+
+    <!-- ── Setup View ── -->
+    <section id="setup-view">
+      <h1>Crazy Eights</h1>
+      <form id="setup-form" class="panel">
+        <label for="player-name">Your Name</label>
+        <input id="player-name" name="playerName" type="text" required maxlength="40" />
+
+        <label for="ai-count">AI Players</label>
+        <select id="ai-count" name="aiCount">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+        </select>
+
+        <label for="house-rules">House Rules</label>
+        <textarea id="house-rules" name="houseRules" rows="3"
+          placeholder="Optional custom rules (e.g. draw-two on 2s)"></textarea>
+
+        <button id="start-button" type="submit">Start Game</button>
+        <p id="setup-error" class="error" role="alert"></p>
+      </form>
+    </section>
+
+    <!-- ── Game View ── -->
+    <section id="game-view" class="hidden">
+      <div class="game-layout">
+
+        <!-- Left: main board -->
+        <section class="panel">
+          <h1>Crazy Eights</h1>
+          <p id="turn-indicator" class="turn-indicator">Loading…</p>
+
+          <!-- Pile area -->
+          <div class="pile-area">
+            <div class="pile-box">
+              <div class="pile-label">Draw Pile</div>
+              <div id="draw-pile-card" class="card back">🂠</div>
+            </div>
+            <div class="pile-box">
+              <div class="pile-label">Top Card</div>
+              <div id="top-card" class="card face">—</div>
+              <div id="active-suit-badge" class="suit-badge hidden"></div>
+            </div>
+          </div>
+
+          <!-- Players -->
+          <div id="players-area"></div>
+
+          <!-- Human action bar -->
+          <div id="action-bar" class="actions panel hidden">
+            <p class="action-hint">It's your turn — select a card to play or draw from the pile.</p>
+            <div id="human-hand" class="cards selectable"></div>
+            <div class="action-row">
+              <button id="play-button" type="button" disabled>Play Selected Card</button>
+              <button id="draw-button" type="button">Draw from Pile</button>
+            </div>
+
+            <!-- Suit selector (shown only when an 8 is played) -->
+            <div id="suit-selector" class="suit-selector hidden">
+              <p>You played an 8 — choose the new suit:</p>
+              <div class="suit-buttons">
+                <button class="suit-btn" data-suit="Hearts">♥ Hearts</button>
+                <button class="suit-btn" data-suit="Diamonds">♦ Diamonds</button>
+                <button class="suit-btn" data-suit="Clubs">♣ Clubs</button>
+                <button class="suit-btn" data-suit="Spades">♠ Spades</button>
+              </div>
+            </div>
+          </div>
+
+          <button id="new-game-button" type="button" class="hidden new-game-btn">New Game</button>
+          <p id="game-error" class="error" role="alert"></p>
+        </section>
+
+        <!-- Right: log -->
+        <section class="panel log-panel">
+          <h2>Game Log</h2>
+          <ul id="game-log"></ul>
+        </section>
+
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/frontend/js/setup.js"></script>
+</body>
+</html>

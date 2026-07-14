@@ -1,4 +1,5 @@
 from uuid import uuid4
+import json
 from fastapi import FastAPI, HTTPException
 import uvicorn
 from typing import Dict
@@ -54,7 +55,9 @@ def get_state(game_id: str):
     if not game:
         raise HTTPException(status_code=400, detail="Game not initialized. Call /start first.")
     
-    return get_game_state_summary(game)
+    if not game.players:
+        raise HTTPException(status_code=400, detail="No players have joined the game yet.")
+    return get_game_state_summary('state', game)
 
 @app.post("/game/{game_id}/join_game")
 async def join_game(game_id: str, req: JoinGameRequest):
@@ -82,7 +85,7 @@ async def start_game(game_id: str):
     
     return {
         "status": "Game started",
-        "state": get_game_state_summary(game)
+        "state": get_game_state_summary('start', game)
     }
 
 @app.post("/game/{game_id}/play")
@@ -100,7 +103,7 @@ async def play_card(game_id: str, payload: PlayCardRequest):
         game.play_card(payload.player_name, payload.card_index, payload.declared_suit)
         return {
             "message": "Card played successfully.", 
-            "state": get_game_state_summary(game)}
+            "state": get_game_state_summary('play', game)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -119,7 +122,7 @@ def draw_card(game_id: str, player_name: str):
         return {
             "message": "Drawing process complete.",
             "drawn_cards": drawn_cards,
-            "state": get_game_state_summary(game)
+            "state": get_game_state_summary('draw', game)
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -167,12 +170,16 @@ async def ai_turn(game_id: str, ai_player_name: str):
     return {
         "action": action_taken,
         "ai_banter": ai_decision.roleplay_comment,
-        "drawn_cards": drawn_cards,
-        "state": get_game_state_summary()
+
+
+"drawn_cards": drawn_cards,
+        "state": get_game_state_summary('ai_turn', game)
     }
 
-def get_game_state_summary(game: GameEngine) -> GameStateSummary:
-    return GameStateSummary(
+def get_game_state_summary(action : str, game: GameEngine) -> GameStateSummary:
+    # write state ro the file
+    summary_file_path = Path("game_state_summary.json")
+    state = GameStateSummary(
         current_player=game.current_player_name,
         top_card=CardModel(suit=game.top_card.suit, rank=game.top_card.rank),
         active_suit=game.active_suit,
@@ -183,11 +190,17 @@ def get_game_state_summary(game: GameEngine) -> GameStateSummary:
                 hand_count=len(p.hand),
                 # only reveal the hand of the current human player for privacy
                 hand=[CardModel(suit=c.suit, rank=c.rank) for c in p.hand] 
-                    if p.player_type == "human" and p.name == game.current_player_name 
+                    if p.player_type == "human" # and p.name == game.current_player_name 
                     else "HIDDEN"
             ) for name, p in game.players.items()
         }
     )
+    summary_file_path.write_text(
+        json.dumps({"action": action, "state": state.model_dump()}, indent=2),
+        encoding="utf-8"
+    )
+
+    return state
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

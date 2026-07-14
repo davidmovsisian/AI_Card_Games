@@ -98,13 +98,16 @@ class GameEngine:
 
         if not self.is_playable(card_to_play):
             raise ValueError(f"Cannot play {card_to_play} on top of {self.top_card} (Active suit: {self.active_suit})")
-        player.hand.pop(card_index)
-        self.discard_pile.append(card_to_play)
-
         if card_to_play.rank == '8':
             if not declared_suit or declared_suit not in ['Hearts', 'Diamonds', 'Clubs', 'Spades']:
                 raise ValueError("Must declare a valid suit (Hearts, Diamonds, Clubs, Spades) when playing an 8.")
             self.declared_suit = declared_suit
+
+        player.hand.pop(card_index)
+        self.discard_pile.append(card_to_play)
+
+        if card_to_play.rank != '8':
+            self.declared_suit = None  # Reset declared suit if not an 8
             
         # if the player has no cards left, he is the winner
         if len(player.hand) == 0:
@@ -116,8 +119,6 @@ class GameEngine:
     def draw_until_playable(self, player_name: str) -> List[dict]:
         if player_name != self.current_player_name:
             raise ValueError("It's not this player's turn.")
-        if not self.draw_pile:
-            raise ValueError("Draw pile is empty. Cannot draw a card.")
         
         player = self.players[player_name]
         drawn_cards_log = []
@@ -125,15 +126,17 @@ class GameEngine:
         while True:
             if not self.draw_pile:
             # If draw pile is empty, recycle discard pile except top card
-                if len(self.discard_pile) > 1:
-                    top = self.discard_pile.pop()
-                    self.draw_pile = self.discard_pile
-                    random.shuffle(self.draw_pile)
-                    self.discard_pile = [top]
-                else:
-                # Absolutely no cards left to draw, skip turn
-                    self.advance_turn()
-                    return drawn_cards_log
+                # if len(self.discard_pile) > 1:
+                #     top = self.discard_pile.pop()
+                #     self.draw_pile = self.discard_pile
+                #     random.shuffle(self.draw_pile)
+                #     self.discard_pile = [top]
+                # else:
+                # # Absolutely no cards left to draw, skip turn
+                #     self.advance_turn()
+                #     return drawn_cards_log
+                self.advance_turn()
+                return drawn_cards_log
 
             drawn_card = self.draw_pile.pop()
             drawn_cards_log.append(drawn_card.to_dict())
@@ -143,6 +146,9 @@ class GameEngine:
                 if drawn_card.rank == '8':
                     # If the drawn card is an '8', randomly declare a suit
                     self.declared_suit = random.choice(['Hearts', 'Diamonds', 'Clubs', 'Spades'])
+                else:
+                    self.declared_suit = None  # Reset declared suit if not an 8
+                    
                 self.advance_turn()
                 break
             else:
