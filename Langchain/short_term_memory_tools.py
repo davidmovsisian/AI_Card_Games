@@ -1,10 +1,8 @@
 from langchain.tools import tool, ToolRuntime
-from langchain_core.runnables import RunnableConfig
 from langchain.messages import ToolMessage
 from langchain.agents import create_agent, AgentState
 from langgraph.types import Command
 from pydantic import BaseModel
-from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 
 class UserState(AgentState):
@@ -28,7 +26,7 @@ def update_user_info(runtime: ToolRuntime[UserContext, UserState]) -> Command:
     )
 
 @tool
-def greet_user(runtime: ToolRuntime[UserState]) -> str:
+def greet_user(runtime: ToolRuntime[UserState]) -> Command | str:
     """Greet the user based on their name in the agent's state.
         Args: None
     """
@@ -57,10 +55,13 @@ agent = create_agent(
     context_schema=UserContext
 )
 
-response = agent.invoke(
-    {"messages": [{"role": "user", "content": "greet the user"}]},
-    context=UserContext(user_id="user_123"),
-    version='v3'
-)
-for msg in response["messages"]:
-    msg.pretty_print()
+graph = agent #for LangGraph dev server to load the graph from this file
+
+if __name__ == "__main__":
+    response = agent.invoke(
+        {"messages": [{"role": "user", "content": "greet the user"}]},
+        context=UserContext(user_id="user_123"),
+        version="v3"
+    )
+    for msg in response["messages"]:
+        msg.pretty_print()
