@@ -1,0 +1,12 @@
+{
+  "dependencies": [
+    "langgraph",
+    "langchain-core",
+    "langchain-ollama",
+    "typing-extensions"
+  ],
+  "graphs": {
+    "default": "./Langchain/langgraph_server.py:graph"
+  },
+  "env": "./Langchain/.env"
+}
