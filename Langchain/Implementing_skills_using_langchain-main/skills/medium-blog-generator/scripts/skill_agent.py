@@ -40,7 +40,7 @@ from langgraph.graph.message import add_messages
 from skills_registry import get_registry, format_skills_for_prompt, get_skill_instructions
 
 PROJECT_ROOT   = Path(__file__).parent
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -253,12 +253,12 @@ def reload_tools():
 
 def _get_llm():
     """Return Gemini 2.0 Flash bound to current TOOLS list."""
-    api_key = os.environ.get("GOOGLE_API_KEY", GOOGLE_API_KEY)
+    api_key = os.environ.get("GEMINI_API_KEY", GEMINI_API_KEY)
     if not api_key:
         raise ValueError(
-            "GOOGLE_API_KEY environment variable not set.\n"
-            "  Windows : set GOOGLE_API_KEY=your_key\n"
-            "  Linux   : export GOOGLE_API_KEY=your_key"
+            "GEMINI_API_KEY environment variable not set.\n"
+            "  Windows : set GEMINI_API_KEY=your_key\n"
+            "  Linux   : export GEMINI_API_KEY=your_key"
         )
     llm = ChatGoogleGenerativeAI(
         model="gemini-3-flash-preview",

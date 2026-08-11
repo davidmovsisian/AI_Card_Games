@@ -111,13 +111,13 @@ with st.sidebar:
     st.title("⚙️ Configuration")
     _gemini_val = st.text_input(
         "🤖 Google (Gemini) API Key *",
-        value=os.environ.get("GOOGLE_API_KEY", ""),
+        value=os.environ.get("GEMINI_API_KEY", ""),
         type="password",
         help="Required for all LLM calls — https://aistudio.google.com/",
         key="gemini_api_key_input",
     )
     if _gemini_val:
-        os.environ["GOOGLE_API_KEY"] = _gemini_val
+        os.environ["GEMINI_API_KEY"] = _gemini_val
 
     # ── 1b. YouTube cookies (fixes IpBlocked on cloud deployments) ───────────
     st.divider()
@@ -363,7 +363,7 @@ with tab_chat:
         user_input = prefill
 
     if user_input:
-        if not os.environ.get("GOOGLE_API_KEY"):
+        if not os.environ.get("GEMINI_API_KEY"):
             st.error("⚠️ Add your Google (Gemini) API Key in the sidebar first.")
             st.stop()
 
@@ -488,7 +488,7 @@ with tab_create:
         )
 
     if submitted:
-        if not os.environ.get("GOOGLE_API_KEY"):
+        if not os.environ.get("GEMINI_API_KEY"):
             st.error("⚠️ Add your Google API Key in the sidebar.")
             st.stop()
         if not skill_desc.strip():

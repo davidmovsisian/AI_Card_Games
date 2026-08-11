@@ -97,7 +97,7 @@ class SkillAgentState(TypedDict):
 def build_llm() -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
         model="gemini-3-flash-preview",
-        google_api_key=os.getenv("GOOGLE_API_KEY"),
+        google_api_key=os.getenv("GEMINI_API_KEY"),
         temperature=0.1,
     )
 

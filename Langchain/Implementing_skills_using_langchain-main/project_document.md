@@ -663,7 +663,7 @@ This is the integration test that validates the entire end-to-end flow:
 ```
 1. User types in st.chat_input()
    │
-2. app.py: GOOGLE_API_KEY present? → No → show error, stop
+2. app.py: GEMINI_API_KEY present? → No → show error, stop
    │
 3. app.py: append user message to chat_messages session state
    │
@@ -818,9 +818,9 @@ Token data flows to `app.py` → stored in `st.session_state["token_history"]` �
 
 ## 11. API Key Management
 
-### GOOGLE_API_KEY
+### GEMINI_API_KEY
 
-Required for all LLM calls. Set in sidebar at top. Flows directly into `os.environ["GOOGLE_API_KEY"]` and is read by both `skill_agent.py` and `create_skill.py` when creating the Gemini LLM instance.
+Required for all LLM calls. Set in sidebar at top. Flows directly into `os.environ["GEMINI_API_KEY"]` and is read by both `skill_agent.py` and `create_skill.py` when creating the Gemini LLM instance.
 
 ### Skill-Specific Keys
 
@@ -879,9 +879,9 @@ pip install google-search-results requests
 
 # 5. Set your Google API key
 # Windows:
-set GOOGLE_API_KEY=your_key_here
+set GEMINI_API_KEY=your_key_here
 # Mac/Linux:
-export GOOGLE_API_KEY=your_key_here
+export GEMINI_API_KEY=your_key_here
 
 # 6. Launch the app
 streamlit run app.py

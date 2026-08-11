@@ -51,7 +51,7 @@ def _get_transcript(url_or_id: str) -> Dict:
 
 def _llm_summarize(transcript: str, video_id: str, style: str, word_count: int) -> str:
     """Call Gemini to generate the summary/guide from the transcript."""
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         return _fallback_summary(transcript, style, word_count)
 

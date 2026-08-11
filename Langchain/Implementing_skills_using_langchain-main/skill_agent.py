@@ -32,7 +32,7 @@ from langgraph.graph.message import add_messages
 from skills_registry import get_registry, format_skills_for_prompt, get_skill_instructions
 
 PROJECT_ROOT   = Path(__file__).parent
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # Human-readable display names for skills
 SKILL_DISPLAY_NAMES: Dict[str, str] = {
@@ -253,17 +253,23 @@ def youtube_tech_summarizer_tool(input_value: str) -> str:
     Input: YouTube URL or video ID. Optionally JSON: {"url": "...", "style": "guide|blog|summary|bullets"}
     """
     scripts_dir = PROJECT_ROOT / "skills" / "youtube-tech-summarizer" / "scripts"
-    sys.path.insert(0, str(scripts_dir))
+    script_path = scripts_dir / "youtube_tech_summarizer.py"
+    if not script_path.exists():
+        return json.dumps({
+            "error": f"Skill script not found: {script_path}",
+            "error_type": "FileNotFoundError",
+        })
+
     try:
-        import youtube_tech_summarizer as yts
-        importlib.reload(yts)
-        result = yts.run_youtube_tech_summarizer(input_value)
+        spec = importlib.util.spec_from_file_location("youtube_tech_summarizer_skill", str(script_path))
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load module spec from {script_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        result = module.run_youtube_tech_summarizer(input_value)
         return json.dumps(result, ensure_ascii=False, indent=2)
     except Exception as e:
         return json.dumps({"error": str(e), "error_type": type(e).__name__})
-    finally:
-        if str(scripts_dir) in sys.path:
-            sys.path.remove(str(scripts_dir))
 
 
 @tool
@@ -364,12 +370,12 @@ def reload_tools():
 
 def _get_llm():
     """Return Gemini 3 Pro Preview bound to the current TOOLS list."""
-    api_key = os.environ.get("GOOGLE_API_KEY", GOOGLE_API_KEY)
+    api_key = os.environ.get("GEMINI_API_KEY", GEMINI_API_KEY)
     if not api_key:
         raise ValueError(
-            "GOOGLE_API_KEY not set.\n"
-            "  Windows : set GOOGLE_API_KEY=your_key\n"
-            "  Linux   : export GOOGLE_API_KEY=your_key"
+            "GEMINI_API_KEY not set.\n"
+            "  Windows : set GEMINI_API_KEY=your_key\n"
+            "  Linux   : export GEMINI_API_KEY=your_key"
         )
     llm = ChatGoogleGenerativeAI(
         model="gemini-3-pro-preview",

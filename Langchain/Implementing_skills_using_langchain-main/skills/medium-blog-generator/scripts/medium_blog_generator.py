@@ -166,12 +166,12 @@ def _extract_text(content) -> str:
 
 def _call_llm(system: str, user: str, temperature: float = 0.7) -> str:
     """Call Gemini 3 Pro Preview and return the text response."""
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         raise EnvironmentError(
-            "GOOGLE_API_KEY environment variable not set.\n"
-            "  Windows : set GOOGLE_API_KEY=your_key\n"
-            "  Linux   : export GOOGLE_API_KEY=your_key"
+            "GEMINI_API_KEY environment variable not set.\n"
+            "  Windows : set GEMINI_API_KEY=your_key\n"
+            "  Linux   : export GEMINI_API_KEY=your_key"
         )
 
     if not LANGCHAIN_AVAILABLE:
