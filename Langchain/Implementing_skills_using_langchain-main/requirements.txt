@@ -1,0 +1,7 @@
+langchain-google-genai>=2.0.0
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain>=0.3.0
+youtube-transcript-api>=0.6.0
+streamlit>=1.30.0
+
