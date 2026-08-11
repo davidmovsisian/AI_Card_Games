@@ -152,13 +152,13 @@ Get your key from: https://aistudio.google.com/
 
 ```bash
 # Windows (Command Prompt)
-set GOOGLE_API_KEY=your_gemini_api_key_here
+set GEMINI_API_KEY=your_gemini_api_key_here
 
 # Windows (PowerShell)
-$env:GOOGLE_API_KEY = "your_gemini_api_key_here"
+$env:GEMINI_API_KEY = "your_gemini_api_key_here"
 
 # Linux / Mac
-export GOOGLE_API_KEY=your_gemini_api_key_here
+export GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ### 3. Launch the Streamlit UI

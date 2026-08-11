@@ -37,7 +37,7 @@ def test_skill_selection(registry):
 
     llm = ChatGoogleGenerativeAI(
         model="gemini-3-flash-preview",
-        google_api_key=os.getenv("GOOGLE_API_KEY"),
+        google_api_key=os.getenv("GEMINI_API_KEY"),
         temperature=0.1,
     )
 
@@ -84,12 +84,12 @@ if __name__ == "__main__":
     registry = test_registry()
     test_full_skill_load(registry)
 
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         test_skill_selection(registry)
         test_full_pipeline()
     else:
-        print("\n⚠️  GOOGLE_API_KEY not set — skipping LLM tests")
+        print("\n⚠️  GEMINI_API_KEY not set — skipping LLM tests")
         print("   Add your key to .env file to run all tests")
 
     print("\n✅ All basic tests passed!")

@@ -126,12 +126,12 @@ def _accumulate_tokens(response) -> Dict:
 
 
 def _llm_call(system: str, user: str, temperature: float = 0.2) -> str:
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         raise ValueError(
-            "GOOGLE_API_KEY not set.\n"
-            "  Windows : set GOOGLE_API_KEY=your_key\n"
-            "  Linux   : export GOOGLE_API_KEY=your_key"
+            "GEMINI_API_KEY not set.\n"
+            "  Windows : set GEMINI_API_KEY=your_key\n"
+            "  Linux   : export GEMINI_API_KEY=your_key"
         )
     llm = ChatGoogleGenerativeAI(
         model="gemini-3-pro-preview",

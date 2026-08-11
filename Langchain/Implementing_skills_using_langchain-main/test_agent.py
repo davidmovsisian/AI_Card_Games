@@ -349,10 +349,10 @@ def main():
     args = parser.parse_args()
 
     # ── API key check ─────────────────────────────────────────────────────────
-    if not os.environ.get("GOOGLE_API_KEY"):
-        print(c(RED, "\nERROR: GOOGLE_API_KEY environment variable not set."))
-        print("  Windows : set GOOGLE_API_KEY=your_key")
-        print("  Linux   : export GOOGLE_API_KEY=your_key")
+    if not os.environ.get("GEMINI_API_KEY"):
+        print(c(RED, "\nERROR: GEMINI_API_KEY environment variable not set."))
+        print("  Windows : set GEMINI_API_KEY=your_key")
+        print("  Linux   : export GEMINI_API_KEY=your_key")
         sys.exit(1)
 
     suite = TestSuite()
