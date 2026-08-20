@@ -100,6 +100,8 @@ github_agent = create_agent(
         "You are a GitHub expert. Answer questions about code, "
         "API references, and implementation details by searching "
         "repositories, issues, and pull requests."
+        "IMPORTANT: Never ask for clarification or additional input — use your tools "
+        "to find the best available answer with what you have."
     )
 )
 
@@ -110,6 +112,8 @@ notion_agent = create_agent(
         "You are a Notion expert. Answer questions about internal "
         "processes, policies, and team documentation by searching "
         "the organization's Notion workspace."
+        "IMPORTANT: Never ask for clarification or additional input — use your tools "
+        "to find the best available answer with what you have."
     )
 )
 
@@ -120,6 +124,8 @@ slack_agent = create_agent(
         "You are a Slack expert. Answer questions by searching "
         "relevant threads and discussions where team members have "
         "shared knowledge and solutions."
+        "IMPORTANT: Never ask for clarification or additional input — use your tools "
+        "to find the best available answer with what you have."
     )
 )
 
@@ -133,7 +139,10 @@ def classify_query(state: RouterState) -> dict:
             {
                 "role": "system",
                 "content": """Analyze this query and determine which knowledge bases to consult.
-            For each relevant source, generate a targeted sub-question optimized for that source.
+            For each source, generate a SHORT, keyword-focused sub-query suitable for 
+            direct use as a search term (e.g. "API authentication headers", not an 
+            open-ended instruction). Do NOT use imperative language or ask the agent 
+            to "identify" or "please provide" anything.
 
             Available sources:
             - github: Code, API references, implementation details, issues, pull requests
