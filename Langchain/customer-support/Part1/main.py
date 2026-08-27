@@ -1,6 +1,6 @@
 import shutil
 import uuid
-from zero_shot_agent import part_1_graph
+from agent import part_1_graph
 from ..sqlite_db import db, update_dates
 from ..utils.utils import _print_event 
 
