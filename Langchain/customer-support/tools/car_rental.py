@@ -2,6 +2,7 @@ from datetime import date, datetime
 from typing import Optional, Union
 from langchain_core.tools import tool
 from sqlite_db import db
+
 import sqlite3
 
 @tool
