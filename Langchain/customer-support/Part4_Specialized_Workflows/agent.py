@@ -115,7 +115,7 @@ class CompleteOrEscalate(BaseModel):
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=1)
 
-# # Flight booking assistant
+# Flight booking assistant
 flight_booking_prompt = ChatPromptTemplate.from_messages(
     [
         (

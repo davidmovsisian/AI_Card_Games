@@ -6,3 +6,7 @@ __pycache__/
 **/.venv/
 .langgraph_api/
 langgraph_api/
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
