@@ -2,9 +2,6 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
-from langchain.messages import AIMessage, ToolMessage
-from langchain.tools import tool, ToolRuntime
-from langgraph.types import Command
 
 from tools.hotels import (
     book_hotel,
@@ -12,16 +9,18 @@ from tools.hotels import (
     search_hotels,
     update_hotel,
 )
-from .common import TravelState, create_sensitive_tools_middleware, formate_prompt_middleware
+from .common import (
+    create_sensitive_tools_middleware, 
+    format_prompt_middleware,
+    complete_or_escalate
+)
 
 model = init_chat_model(model="openai:gpt-4o", temperature=0)
 
-all_tools = [search_hotels, book_hotel, update_hotel, cancel_hotel]
+hotel_tools = [search_hotels, book_hotel, update_hotel, cancel_hotel]
 sensitive_tools_names = ["book_hotel", "update_hotel", "cancel_hotel"]
 
-# ---------------------------------------------------------------------------
 # Handoff Schema & Escalation Tool
-# ---------------------------------------------------------------------------
 class ToHotelBookingAssistant(BaseModel):
     """Transfers work to a specialized assistant to handle hotel bookings."""
 
@@ -44,32 +43,6 @@ class ToHotelBookingAssistant(BaseModel):
             }
         }
 
-@tool
-def complete_or_escalate(
-    reason: str,
-    runtime: ToolRuntime[None, TravelState]
-) -> Command:
-    """Escalate back to primary assistant.
-       Args:
-         reason: reason why tool is complete or escalate
-    """
-    last_ai_message = next(
-        msg for msg in reversed(runtime.state["messages"]) if isinstance(msg, AIMessage)
-    ), None
-
-    transfer_message = ToolMessage(
-        content=f"Resuming dialog with the host assistant. Reason: {reason}",
-        tool_call_id=runtime.tool_call_id,
-    )
-    return Command(
-        goto="primary_assistant",
-        update={
-            "active_agent": "primary_assistant",
-            "messages": [last_ai_message, transfer_message],
-        },
-        graph=Command.PARENT,
-    )
-
 HOTEL_PROMPT = """
 You are a specialized assistant for handling hotel bookings. "
             "The primary assistant delegates work to you whenever the user needs help booking a hotel. "
@@ -89,10 +62,10 @@ You are a specialized assistant for handling hotel bookings. "
 """
 
 hotel_agent = create_agent(
-    model=model.bind(parallel_tool_calls=False),
-    tools=all_tools + [complete_or_escalate],
-    system_prompt=HOTEL_PROMPT.format(time=datetime.now),
-    middleware=[
+    model = model.bind(parallel_tool_calls=False),
+    tools = hotel_tools + [complete_or_escalate],
+    system_prompt = HOTEL_PROMPT.format(time=datetime.now),
+    middleware = [
         create_sensitive_tools_middleware(sensitive_tools_names),
-        formate_prompt_middleware(HOTEL_PROMPT)]
+        format_prompt_middleware(HOTEL_PROMPT)]
 )
