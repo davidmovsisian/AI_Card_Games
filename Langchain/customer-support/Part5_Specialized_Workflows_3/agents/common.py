@@ -1,20 +1,23 @@
 from typing_extensions import NotRequired
 from langchain.agents import AgentState
 from langchain.agents.middleware import wrap_tool_call, before_model
-from langchain.messages import SystemMessage, ToolMessage, AIMessage
+from langchain.messages import ToolMessage, AIMessage
 from typing import Any
 from langgraph.types import interrupt
 from datetime import datetime
 from langchain.tools import tool, ToolRuntime
 from langgraph.types import Command
+from langchain.agents.middleware import wrap_model_call, ModelRequest, ModelResponse
+from typing import Callable
+
 
 class TravelState(AgentState):
     active_agent: NotRequired[str]
     user_info: NotRequired[str]
 
-def create_sensitive_tools_middleware(sensitive_tools_names: list[str]):
+def sensitive_tools_middleware(sensitive_tools_names: list[str]):
     @wrap_tool_call
-    def sensitive_tools_middleware(request: Any, handler: Any) -> Any:
+    def _(request: Any, handler: Any) -> Any:
         tool_name = request.tool_call["name"]
         tool_args = request.tool_call["args"]
         tool_call_id = request.tool_call["id"]
@@ -34,37 +37,27 @@ def create_sensitive_tools_middleware(sensitive_tools_names: list[str]):
         # Execute the tool
         return handler(request)
 
-    return sensitive_tools_middleware
+    return _
 
 
 def format_prompt_middleware(prompt: str):
-    @before_model
-    def prompt_middleware(state: TravelState, runtime):
-        user_info = state.get(
-            "user_info",
-            "No user information available.",
-        )
+    @wrap_model_call
+    def _(
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+
+        user_info = request.runtime.state.get("user_info", "No user information available.")
 
         formatted_prompt = prompt.format(
-            user_info=user_info,
-            time=datetime.now(),
+            user_info = user_info,
+            time = datetime.now()
         )
 
-        messages = list(state["messages"])
+        request = request.override(system_prompt = formatted_prompt)
+        return handler(request)
 
-        if messages and isinstance(messages[0], SystemMessage):
-            messages[0] = SystemMessage(content=formatted_prompt)
-        else:
-            messages.insert(
-                0,
-                SystemMessage(content=formatted_prompt),
-            )
-
-        return {
-            "messages": messages,
-        }
-
-    return prompt_middleware
+    return _
 
 @tool
 def complete_or_escalate(

@@ -1,8 +1,6 @@
-from datetime import datetime
-from langchain_core.prompts import ChatPromptTemplate
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
+from langchain.agents import create_agent
+from langchain.chat_models import init_chat_model
 
 from tools.car_rental import (
     book_car_rental,
@@ -11,18 +9,17 @@ from tools.car_rental import (
     update_car_rental,
 )
 from .common import (
-    Assistant,
-    CompleteOrEscalate,
-    State,
-    make_skill_router,
-    pop_dialog_state,
-    create_tool_node_with_fallback
+    sensitive_tools_middleware, 
+    complete_or_escalate,
+    format_prompt_middleware
 )
 
-# ---------------------------------------------------------------------------
-# Handoff tool
-# ---------------------------------------------------------------------------
+model = init_chat_model(model="openai:gpt-4o", temperature=0)
 
+car_rental_tools = [book_car_rental, cancel_car_rental, search_car_rentals, update_car_rental]
+sensitive_tools_names = ["book_car_rental", "cancel_car_rental", "update_car_rental"]
+
+# Handoff tool, used for transfer from prime assistant to specialized assistant
 class ToBookCarRental(BaseModel):
     """Transfers work to a specialized assistant to handle car rental bookings."""
 
@@ -49,63 +46,33 @@ class ToBookCarRental(BaseModel):
 # ---------------------------------------------------------------------------
 # Prompt & runnable
 # ---------------------------------------------------------------------------
+CAR_RENTAL_PROMPT = """
+    You are a specialized assistant for handling car rental bookings. 
+    The primary assistant delegates work to you whenever the user needs help booking a car rental. 
+    Search for available car rentals based on the user's preferences and confirm the booking details with the customer.
+    When searching, be persistent. Expand your query bounds if the first search returns no results.
+    
+    Remember: a booking isn't completed until after the relevant tool has successfully been used.
 
-book_car_rental_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are a specialized assistant for handling car rental bookings. "
-            "The primary assistant delegates work to you whenever the user needs help booking a car rental. "
-            "Search for available car rentals based on the user's preferences and confirm the booking details with the customer. "
-            "When searching, be persistent. Expand your query bounds if the first search returns no results. "
-            "If you need more information or the customer changes their mind, escalate the task back to the main assistant. "
-            "Remember that a booking isn't completed until after the relevant tool has successfully been used."
-            "\nCurrent time: {time}."
-            "\n\nIf the user needs help, and none of your tools are appropriate for it, then "
-            '"CompleteOrEscalate" the dialog to the host assistant. '
-            "Do not waste the user's time. Do not make up invalid tools or functions."
-            "\n\nSome examples for which you should CompleteOrEscalate:\n"
-            " - 'what's the weather like this time of year?'\n"
-            " - 'What flights are available?'\n"
-            " - 'nevermind i think I'll book separately'\n"
-            " - 'Oh wait i haven't booked my flight yet i'll do that first'\n"
-            " - 'Car rental booking confirmed'",
-        ),
-        ("placeholder", "{messages}"),
-    ]
-).partial(time=datetime.now)
+    If the user needs help, and none of your tools are appropriate for it, then call "complete_or_escalate" 
+    to hand control back to the primary assistant with a short reason.
+    Do not waste the user's time. Do not make up invalid tools or functions.
+    
+    Some examples for which you should complete_or_escalate:
+     - 'what's the weather like this time of year?'
+     - 'What flights are available?'
+     - 'nevermind i think I'll book separately'
+     - 'Oh wait i haven't booked my flight yet i'll do that first'
+     - 'Car rental booking confirmed'
 
-book_car_rental_safe_tools = [search_car_rentals]
-book_car_rental_sensitive_tools = [book_car_rental, update_car_rental, cancel_car_rental]
-book_car_rental_tools = book_car_rental_safe_tools + book_car_rental_sensitive_tools
+     Current time: {time}.
+"""
 
-
-def build_graph(llm): # -> CompiledStateGraph
-    runnable = book_car_rental_prompt | llm.bind_tools(book_car_rental_tools + [CompleteOrEscalate])
-    router = make_skill_router(book_car_rental_sensitive_tools, "book_car_rental")
-    sg = StateGraph(State)
-
-    #  Nodes
-    sg.add_node("book_car_rental", Assistant(runnable))
-    sg.add_node("book_car_rental_safe_tools", create_tool_node_with_fallback(book_car_rental_safe_tools))
-    sg.add_node("book_car_sensitive_tools", create_tool_node_with_fallback(book_car_rental_sensitive_tools))
-    sg.add_node("leave_skill", pop_dialog_state) # internal — answers CompleteOrEscalate
-
-    # Edges
-    sg.add_edge(START, "book_car_rental")
-    sg.add_edge("book_car_rental_safe_tools", "book_car_rental")
-    sg.add_edge("book_car_rental_sensitive_tools", "book_car_rental")
-    sg.add_edge("leave_skill", END) # leave sub-graph after updating the states stack
-
-    sg.add_conditional_edges(
-        "book_car_rental",
-        router,
-        [
-            "book_car_rental_safe_tools", 
-            "book_car_rental_sensitive_tools", 
-            "leave_skill", 
-            END
+car_rental_agent = create_agent(
+    model = model.bind(parallel_tool_calls=False),
+    tools = car_rental_tools + [complete_or_escalate],
+    middleware = [
+        sensitive_tools_middleware(sensitive_tools_names),
+        format_prompt_middleware(CAR_RENTAL_PROMPT)
         ]
-    )
-
-    return sg.compile(interrupt_before = ["book_car_rental_sensitive_tools"])
+)
