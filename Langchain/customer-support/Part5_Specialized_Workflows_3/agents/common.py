@@ -8,12 +8,21 @@ from datetime import datetime
 from langchain.tools import tool, ToolRuntime
 from langgraph.types import Command
 from langchain.agents.middleware import wrap_model_call, ModelRequest, ModelResponse
-from typing import Callable
+from typing import Callable, Optional, Literal
 
 
 class TravelState(AgentState):
-    active_agent: NotRequired[str]
+    active_agent: Optional[
+            Literal[
+                "primary_agent",
+                "flight_agent",
+                "car_rental_agent",
+                "hotel_agent",
+                "excursion_agent",
+            ]
+        ]
     user_info: NotRequired[str]
+    handoff_data: NotRequired[dict]
 
 def sensitive_tools_middleware(sensitive_tools_names: list[str]):
     @wrap_tool_call
@@ -36,9 +45,7 @@ def sensitive_tools_middleware(sensitive_tools_names: list[str]):
                 
         # Execute the tool
         return handler(request)
-
     return _
-
 
 def format_prompt_middleware(prompt: str):
     @wrap_model_call
@@ -90,9 +97,9 @@ def complete_or_escalate(
         messages.insert(0, last_ai_message)
 
     return Command(
-        goto="primary_assistant",
+        goto="primary_agent",
         update={
-            "active_agent": "primary_assistant",
+            "active_agent": "primary_agent",
             "messages": messages,
         },
         graph=Command.PARENT,

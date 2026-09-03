@@ -1,4 +1,3 @@
-from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 
@@ -19,29 +18,6 @@ model = init_chat_model(model="openai:gpt-4o", temperature=0)
 hotel_tools = [search_hotels, book_hotel, update_hotel, cancel_hotel]
 sensitive_tools_names = ["book_hotel", "update_hotel", "cancel_hotel"]
 
-# Handoff tool, used for transfer from prime assistant to specialized assistant
-class ToHotelBookingAssistant(BaseModel):
-    """Transfers work to a specialized assistant to handle hotel bookings."""
-
-    location: str = Field(
-        description="The location where the user wants to book a hotel."
-    )
-    checkin_date: str = Field(description="The check-in date for the hotel.")
-    checkout_date: str = Field(description="The check-out date for the hotel.")
-    request: str = Field(
-        description="Any additional information or requests from the user regarding the hotel booking."
-    )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "location": "Zurich",
-                "checkin_date": "2023-08-15",
-                "checkout_date": "2023-08-20",
-                "request": "I prefer a hotel near the city center with a room that has a view.",
-            }
-        }
-
 HOTEL_PROMPT = """
     You are a specialized assistant for handling hotel bookings.
     The primary assistant delegates work to you whenever the user needs help booking a hotel.
@@ -61,7 +37,12 @@ HOTEL_PROMPT = """
     - "Oh wait i haven't booked my flight yet i'll do that first."
     - "Hotel booking confirmed."
 
-     Current time: {time}.
+    Current user flight information:
+        <Flights>
+            {user_info}
+        </Flights>
+    
+    Current time: {time}
 """
 
 hotel_agent = create_agent(

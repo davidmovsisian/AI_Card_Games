@@ -1,4 +1,3 @@
-from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
  
@@ -19,16 +18,6 @@ model = init_chat_model(model="openai:gpt-4o", temperature=0)
 flight_tools = [search_flights, update_ticket_to_new_flight, cancel_ticket]
 sensitive_tools_names = ["update_ticket_to_new_flight", "cancel_ticket"]
 
-# Handoff tool, used for transfer from prime assistant to specialized assistant
-class ToFlightBookingAssistant(BaseModel):
-    """Transfers work to a specialized assistant to handle flight updates and
-    cancellations."""
- 
-    request: str = Field(
-        description="Any necessary follow-up questions the flight assistant should clarify before proceeding."
-    )
-
-# System prompt
 FLIGHT_PROMPT = """
     You are a specialized assistant for handling flight updates and cancellations.
     The primary assistant delegates work to you whenever the user needs help updating their flights. 

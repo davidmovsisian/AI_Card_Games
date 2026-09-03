@@ -1,4 +1,3 @@
-from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 
@@ -19,33 +18,6 @@ model = init_chat_model(model="openai:gpt-4o", temperature=0)
 car_rental_tools = [book_car_rental, cancel_car_rental, search_car_rentals, update_car_rental]
 sensitive_tools_names = ["book_car_rental", "cancel_car_rental", "update_car_rental"]
 
-# Handoff tool, used for transfer from prime assistant to specialized assistant
-class ToBookCarRental(BaseModel):
-    """Transfers work to a specialized assistant to handle car rental bookings."""
-
-    location: str = Field(
-        description="The location where the user wants to rent a car."
-    )
-    start_date: str = Field(description="The start date of the car rental.")
-    end_date: str = Field(description="The end date of the car rental.")
-    request: str = Field(
-        description="Any additional information or requests from the user regarding the car rental."
-    )
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "location": "Basel",
-                "start_date": "2023-07-01",
-                "end_date": "2023-07-05",
-                "request": "I need a compact car with automatic transmission.",
-            }
-        }
-
-
-# ---------------------------------------------------------------------------
-# Prompt & runnable
-# ---------------------------------------------------------------------------
 CAR_RENTAL_PROMPT = """
     You are a specialized assistant for handling car rental bookings. 
     The primary assistant delegates work to you whenever the user needs help booking a car rental. 
@@ -59,13 +31,18 @@ CAR_RENTAL_PROMPT = """
     Do not waste the user's time. Do not make up invalid tools or functions.
     
     Some examples for which you should complete_or_escalate:
-     - 'what's the weather like this time of year?'
-     - 'What flights are available?'
-     - 'nevermind i think I'll book separately'
-     - 'Oh wait i haven't booked my flight yet i'll do that first'
-     - 'Car rental booking confirmed'
+    - 'what's the weather like this time of year?'
+    - 'What flights are available?'
+    - 'nevermind i think I'll book separately'
+    - 'Oh wait i haven't booked my flight yet i'll do that first'
+    - 'Car rental booking confirmed'
 
-     Current time: {time}.
+    Current user flight information:
+            <Flights>
+                {user_info}
+            </Flights>
+        
+    Current time: {time}
 """
 
 car_rental_agent = create_agent(
