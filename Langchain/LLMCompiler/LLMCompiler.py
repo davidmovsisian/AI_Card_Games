@@ -1,5 +1,6 @@
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from math_tools import get_math_tool
 from typing import Sequence
 from langchain_core.language_models import BaseChatModel
@@ -74,11 +75,10 @@ def create_planner(llm: ChatOpenAI, tool: Sequence[BaseTool], base_prompt: ChatP
     def wrap_messages(state: list):
         return {"messages": state}
 
-    return Runnable(wrap_messages | planner_prompt | llm | LLMCompilerPlanParser(tools = tools))
+    return wrap_messages | planner_prompt | llm | LLMCompilerPlanParser(tools = tools)
 
 # test create_planner
-llm = ChatOpenAI(model="gpt-4-turbo-preview")
-# This is the primary "agent" in our application
+
 planner = create_planner(llm, tools, base_prompt)
 
 example_question = "What's the temperature in SF raised to the 3rd power?"

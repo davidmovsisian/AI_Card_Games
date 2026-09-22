@@ -105,6 +105,31 @@ def _evaluate_expression(expression: str) -> str:
     return re.sub(r"^\[|\]$", "", output)
 
 
+class RelevantContext(BaseModel):
+    """The context to be used in the math problem."""
+
+    context: List[str] = Field(
+        ...,
+        description="A list of strings that provide additional context for the math problem.",
+    )
+
+def match_context_to_problem(problem: str, context: Optional[List[str]], llm: ChatOpenAI)-> RelevantContext:
+    extract_prompt = """
+    Given the following math problem and additional context, identify which context items are relevant to the problem. 
+    Return a list of relevant context items.
+    Remove all backticks and any code formatting from the context items.
+"""
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", extract_prompt),
+            ("user", "{problem}"),
+            MessagesPlaceholder(variable_name="context", optional=False),
+        ]
+    )
+
+    chain = prompt | llm.with_structured_output(RelevantContext)
+    return chain.invoke({"problem": problem, "context": context})
+
 def get_math_tool(llm: ChatOpenAI):
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -126,8 +151,10 @@ def get_math_tool(llm: ChatOpenAI):
         if context:
             context_str = "\n".join(context)
             if context_str.strip():
+                matched_context = match_context_to_problem(problem, context, llm)  # Ensure context is relevant to the problem
+                matched_context_str = "\n".join(matched_context.context)
                 context_str = _ADDITIONAL_CONTEXT_PROMPT.format(
-                    context=context_str.strip()
+                    context=matched_context_str
                 )
                 chain_input["context"] = [SystemMessage(content=context_str)]
         code_model = extractor.invoke(chain_input, config)
