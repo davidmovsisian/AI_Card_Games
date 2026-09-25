@@ -40,11 +40,6 @@ builder.add_node("excursion_agent", excursion_agent)
 # ── Primary agent ──────────────────────────────────────────────────────
 builder.add_node("primary_agent", primary_agent)
 
-builder.add_conditional_edges(
-    "primary_agent",
-    tools_condition,   # built-in: returns END if no tool calls, otherwise "__tool__"
-)
-
 memory = InMemorySaver()
 part_5_graph = builder.compile(checkpointer=memory)
 

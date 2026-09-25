@@ -89,3 +89,4 @@ for question in tutorial_questions:
 # Reset the ContextVar when the application finishes.
 reset_graph_budget(budget_token)
 graph_budget.report()
+graph_budget.estimation_accuracy_report()
