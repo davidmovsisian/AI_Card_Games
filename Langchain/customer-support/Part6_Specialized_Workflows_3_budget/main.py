@@ -1,6 +1,6 @@
 import uuid
 from .agents import part_5_graph
-from .agents.common import GraphBudget, set_graph_budget, reset_graph_budget
+from .agents.budget_caping import GraphBudget, set_graph_budget, reset_graph_budget, ALL_POLICIES
 from sqlite_db import db, update_dates
 from utils.utils import _print_event
 from langchain.messages import ToolMessage
@@ -25,14 +25,16 @@ if __name__ == "__main__":
         "OK great pick one and book it for my second day there.",
     ]
 
-    import shutil
+import shutil
 import uuid
 
 # Update with the backup file so we can restart from the original place in each section
 db = update_dates(db)
 thread_id = str(uuid.uuid4())
 
-graph_budget = GraphBudget(total_budget=0.10)
+graph_budget = GraphBudget(total_budget=0.10, overflow_fraction=0.1)
+for node_name, policy in ALL_POLICIES.items():
+    graph_budget.register_policy(node_name, policy)
 budget_token = set_graph_budget(graph_budget)
 
 config = {
@@ -45,7 +47,15 @@ config = {
     }
 }
 
+# Initial budget state
+print(f"Initial budget...'")
+print(f"  global remaining: ${graph_budget.remaining:.6f}")
+for name in ["primary_agent", "flight_agent", "hotel_agent",
+                "car_rental_agent", "excursion_agent"]:
+    print(f"  {name}: ${graph_budget.node_remaining(name):.6f}")
+
 _printed = set()
+
 # We can reuse the tutorial questions from part 1 to see how it does.
 for question in tutorial_questions:
     events = part_5_graph.stream(
@@ -53,6 +63,14 @@ for question in tutorial_questions:
     )
     for event in events:
         _print_event(event, _printed)
+
+    # Show budget state after each turn
+    print(f"\nAfter: '{question[:40]}...'")
+    print(f"  global remaining: ${graph_budget.remaining:.6f}")
+    for name in ["primary_agent", "flight_agent", "hotel_agent",
+                 "car_rental_agent", "excursion_agent"]:
+        print(f"  {name}: ${graph_budget.node_remaining(name):.6f}")
+
     snapshot = part_5_graph.get_state(config)
     while snapshot.next:
         # We have an interrupt! The agent is trying to use a tool, and the user can approve or deny it

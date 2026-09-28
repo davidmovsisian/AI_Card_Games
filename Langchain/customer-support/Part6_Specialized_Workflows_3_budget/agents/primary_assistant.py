@@ -242,7 +242,7 @@ PRIMARY_BUDGET_POLICY = BudgetPolicy(
 model = init_chat_model(model=PRIMARY_BUDGET_POLICY.primary_model, temperature=0)
 
 primary_agent = create_agent(
-    model = model.bind(parallel_tool_calls=False),
+    model = model.bind(parallel_tool_calls=True),
     tools = primary_assistant_tools + handoff_tools,
     middleware = [
         format_prompt_middleware(PRIMARY_PROMPT),
