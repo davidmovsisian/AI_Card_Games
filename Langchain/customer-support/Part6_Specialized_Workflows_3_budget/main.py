@@ -1,111 +1,119 @@
 import uuid
 from .agents import part_5_graph
-from .agents.budget_caping import GraphBudget, set_graph_budget, reset_graph_budget, ALL_POLICIES
+from .agents.budget_caping import (
+    GraphBudget, 
+    set_graph_budget, 
+    reset_graph_budget, 
+    ALL_POLICIES,
+    BudgetExceededError
+)
 from sqlite_db import db, update_dates
 from utils.utils import _print_event
-from langchain.messages import ToolMessage
+from langgraph.types import Command
 
-if __name__ == "__main__":
+tutorial_questions = [
+    "Hi there, what time is my flight?",
+    "Am i allowed to update my flight to something sooner? I want to leave later today.",
+    "Update my flight to sometime next week then",
+    "The next available option is great",
+    "what about lodging and transportation?",
+    "Yeah i think i'd like an affordable hotel for my week-long stay (7 days). And I'll want to rent a car.",
+    "OK could you place a reservation for your recommended hotel? It sounds nice.",
+    "yes go ahead and book anything that's moderate expense and has availability.",
+    "Now for a car, what are my options?",
+    "Awesome let's just get the cheapest option. Go ahead and book for 7 days",
+    "Cool so now what recommendations do you have on excursions?",
+    "Are they available while I'm there?",
+    "interesting - i like the museums, what options are there? ",
+    "OK great pick one and book it for my second day there.",
+]
 
-    # Let's create an example conversation a user might have with the assistant
-    tutorial_questions = [
-        "Hi there, what time is my flight?",
-        "Am i allowed to update my flight to something sooner? I want to leave later today.",
-        "Update my flight to sometime next week then",
-        "The next available option is great",
-        "what about lodging and transportation?",
-        "Yeah i think i'd like an affordable hotel for my week-long stay (7 days). And I'll want to rent a car.",
-        "OK could you place a reservation for your recommended hotel? It sounds nice.",
-        "yes go ahead and book anything that's moderate expense and has availability.",
-        "Now for a car, what are my options?",
-        "Awesome let's just get the cheapest option. Go ahead and book for 7 days",
-        "Cool so now what recommendations do you have on excursions?",
-        "Are they available while I'm there?",
-        "interesting - i like the museums, what options are there? ",
-        "OK great pick one and book it for my second day there.",
-    ]
+AGENT_NAMES = [
+    "primary_agent",
+    "flight_agent",
+    "hotel_agent",
+    "car_rental_agent",
+    "excursion_agent",
+]
 
-import shutil
-import uuid
+def print_budget(graph_budget: GraphBudget, header: str):
+    print(f"\n{header}")
+    print(f" global remaining: {graph_budget.remaining:.6f}")
+    for name in AGENT_NAMES:
+        print(f"  {name}: ${graph_budget.node_remaining(name):.6f}")
+
+def pending_interrupts(config: dict) -> list:
+    """All interrupts the graph is currently paused on.
+ 
+    Several can be pending at once (the agents use parallel_tool_calls=True),
+    and they can come from inside a sub-agent, so read them off the tasks.
+    """
+
+    snapshot = part_5_graph.get_state(config)
+    return [i for task in snapshot.tasks for i in task.interrupts]
+
+def ask_approval(payload: dict) -> dict:
+    """Ask the human and return the resume value the middleware expects."""
+    print("\n--- Approval required ---")
+    print(f"Action: {payload.get('action')}")
+    print(f"Args:   {payload.get('args')}")
+
+    try:
+        answer = input(
+            "Type 'y' to approve; otherwise explain the change you want:\n> "
+        ).strip()
+    except EOFError:  # non-interactive run: auto-approve
+        answer = "y"
+
+    if answer.lower() in {'y', 'yes'}:
+        return {"approved": True}
+    return {"approved": False, "reason": answer}
+
+def run_graph(graph_input, config: dict, printed: set):
+    for event in part_5_graph.stream(graph_input, config, stream_mode="values"):
+        _print_event(event, printed)
 
 # Update with the backup file so we can restart from the original place in each section
 db = update_dates(db)
-thread_id = str(uuid.uuid4())
 
-graph_budget = GraphBudget(total_budget=0.10, overflow_fraction=0.1)
-for node_name, policy in ALL_POLICIES.items():
-    graph_budget.register_policy(node_name, policy)
-budget_token = set_graph_budget(graph_budget)
-
-config = {
-    "configurable": {
-        # The passenger_id is used in our flight tools to
-        # fetch the user's flight information
-        "passenger_id": "3442 587242",
-        # Checkpoints are accessed by thread_id
-        "thread_id": thread_id,
+def main():
+    thread_id = str(uuid.uuid4())
+    config = {
+        "configurable": {
+            "passenger_id": "3442 587242",
+            "thread_id": thread_id,
+        }
     }
-}
 
-# Initial budget state
-print(f"Initial budget...'")
-print(f"  global remaining: ${graph_budget.remaining:.6f}")
-for name in ["primary_agent", "flight_agent", "hotel_agent",
-                "car_rental_agent", "excursion_agent"]:
-    print(f"  {name}: ${graph_budget.node_remaining(name):.6f}")
+    graph_budget = GraphBudget(total_budget=0.10, overflow_fraction=0.1)
+    for node_name, policy in ALL_POLICIES.items():
+        graph_budget.register_policy(node_name, policy)
+    budget_token = set_graph_budget(graph_budget)
 
-_printed = set()
+    try:
+        print_budget(graph_budget, "Initial budget")
+        printed: set = set()
 
-# We can reuse the tutorial questions from part 1 to see how it does.
-for question in tutorial_questions:
-    events = part_5_graph.stream(
-        {"messages": ("user", question)}, config, stream_mode="values"
-    )
-    for event in events:
-        _print_event(event, _printed)
+        for question in tutorial_questions:
+            run_graph({"messages": ("user", question)}, config, printed)
 
-    # Show budget state after each turn
-    print(f"\nAfter: '{question[:40]}...'")
-    print(f"  global remaining: ${graph_budget.remaining:.6f}")
-    for name in ["primary_agent", "flight_agent", "hotel_agent",
-                 "car_rental_agent", "excursion_agent"]:
-        print(f"  {name}: ${graph_budget.node_remaining(name):.6f}")
+            # The graph pauses whenever a sensitive tool needs approval.
+            # Resume with Command(resume=...)
 
-    snapshot = part_5_graph.get_state(config)
-    while snapshot.next:
-        # We have an interrupt! The agent is trying to use a tool, and the user can approve or deny it
-        # Note: This code is all outside of your graph. Typically, you would stream the output to a UI.
-        # Then, you would have the frontend trigger a new run via an API call when the user has provided input.
-        try:
-            user_input = input(
-                "Do you approve of the above actions? Type 'y' to continue;"
-                " otherwise, explain your requested changed.\n\n"
-            )
-        except:
-            user_input = "y"
-        if user_input.strip() == "y":
-            # Just continue
-            result = part_5_graph.invoke(
-                None,
-                config,
-            )
-        else:
-            # Satisfy the tool invocation by
-            # providing instructions on the requested changes / change of mind
-            result = part_5_graph.invoke(
-                {
-                    "messages": [
-                        ToolMessage(
-                            tool_call_id=event["messages"][-1].tool_calls[0]["id"],
-                            content=f"API call denied by user. Reasoning: '{user_input}'. Continue assisting, accounting for the user's input.",
-                        )
-                    ]
-                },
-                config,
-            )
-        snapshot = part_5_graph.get_state(config)
-        
-# Reset the ContextVar when the application finishes.
-reset_graph_budget(budget_token)
-graph_budget.report()
-graph_budget.estimation_accuracy_report()
+            while interrupts := pending_interrupts(config):
+                decisions = {i.id: ask_approval(i.value) for i in interrupts}
+                run_graph(Command(resume=decisions), config, printed)
+    except BudgetExceededError as e:
+        return {
+            "response": "I've used the available budget for this conversation. "
+                        "Please start a new conversation to continue.",
+            "thread_id": thread_id,
+            "primary_expected": e.primary_expected,
+            "fallback_expected": e.fallback_expected,
+            "budget_remaining": e.remaining,
+        }
+    finally:
+        reset_graph_budget(budget_token)
+
+    graph_budget.report()
+    graph_budget.estimation_accuracy_report()

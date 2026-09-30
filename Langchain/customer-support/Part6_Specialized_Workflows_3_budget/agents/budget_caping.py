@@ -700,9 +700,15 @@ def _token_count(
     model_name: str, messages: list[Any], tools: list[Any] | None
 ) -> int:
     """Count input tokens using LiteLLM's tokenizer (includes tool schemas)."""
+    from langchain_core.utils.function_calling import convert_to_openai_tool
+    from langchain_core.messages import convert_to_openai_messages
+
+    openai_messages = convert_to_openai_messages(messages)
+
     kwargs: dict[str, Any] = {"model": model_name, "messages": messages}
     if tools:
-        kwargs["tools"] = tools
+        kwargs["tools"] = [convert_to_openai_tool(tool) for tool in tools]
+
     return int(litellm.token_counter(**kwargs))
 
 
@@ -722,9 +728,9 @@ def _usage_from_response(
     response: ModelResponse,
 ) -> tuple[int | None, int | None]:
     """Extract actual input/output token counts from the model response."""
-    message = getattr(response, "result", None) or getattr(
-        response, "response", None
-    )
+    result = getattr(response, "result", None)
+    message = result[-1] if isinstance(result, list) and result else (result or response)
+
     usage = getattr(message, "usage_metadata", None) or {}
     if not usage:
         metadata = getattr(message, "response_metadata", None) or {}
@@ -742,7 +748,7 @@ def _usage_from_response(
 # Budget middleware
 # ---------------------------------------------------------------------------
 
-def budget_middleware(policy: BudgetPolicy, node_name: str):
+def budget_middleware(policy: BudgetPolicy, node_name: str, parallel_tool_calls: bool = False):
     """
     Wrap every model call inside a node with budget-aware model selection.
 
@@ -773,11 +779,11 @@ def budget_middleware(policy: BudgetPolicy, node_name: str):
     proactively to preserve headroom for later calls in the same turn.
     """
     primary = init_chat_model(model=policy.primary_model, temperature=0).bind(
-        parallel_tool_calls=False,
+        parallel_tool_calls=parallel_tool_calls,
         max_tokens=policy.primary_max_tokens,
     )
     fallback = init_chat_model(model=policy.fallback_model, temperature=0).bind(
-        parallel_tool_calls=False,
+        parallel_tool_calls=parallel_tool_calls,
         max_tokens=policy.fallback_max_tokens,
     )
 
@@ -798,7 +804,7 @@ def budget_middleware(policy: BudgetPolicy, node_name: str):
 
         # ── 1. Assemble message list ─────────────────────────────────────────
         messages: list[Any] = list(request.messages)
-        system_prompt = getattr(request, "system_prompt", None)
+        system_prompt = getattr(request, "system_prompt", None) or getattr(request, "system_message", None)
         if system_prompt:
             messages = [{"role": "system", "content": system_prompt}] + messages
         tools = getattr(request, "tools", None)

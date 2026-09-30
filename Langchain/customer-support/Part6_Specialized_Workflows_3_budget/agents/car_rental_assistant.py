@@ -1,6 +1,6 @@
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
-from budget_caping import budget_middleware, BudgetPolicy
+from .budget_caping import budget_middleware, BudgetPolicy
 
 from tools.car_rental import (
     book_car_rental,
@@ -12,6 +12,8 @@ from .common import (
     sensitive_tools_middleware,
     complete_or_escalate,
     format_prompt_middleware,
+    clear_old_search_results_middleware,
+    TravelState
 )
 
 car_rental_tools = [book_car_rental, cancel_car_rental, search_car_rentals, update_car_rental]
@@ -37,10 +39,15 @@ CAR_RENTAL_PROMPT = """
     - 'Car rental booking confirmed'
 
     Current user flight information:
-            <Flights>
-                {user_info}
-            </Flights>
-
+    <Flights>
+        {user_info}
+    </Flights>
+    
+    Details passed from the primary assistant (use these to start; confirm with the user if unclear):
+    <Handoff>
+        {handoff}
+    </Handoff>
+        
     Current time: {time}
 """
 
@@ -53,14 +60,17 @@ CAR_RENTAL_BUDGET_POLICY = BudgetPolicy(
     trend_cntr=2 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
-model = init_chat_model(model=CAR_RENTAL_BUDGET_POLICY.primary_model, temperature=0)
+# model = init_chat_model(model=CAR_RENTAL_BUDGET_POLICY.primary_model, temperature=0)
+
 
 car_rental_agent = create_agent(
-    model=model.bind(parallel_tool_calls=True),
+    # model=model.bind(parallel_tool_calls=True),
     tools=car_rental_tools + [complete_or_escalate],
+    state_schema=TravelState,
     middleware=[
-        sensitive_tools_middleware(sensitive_tools_names),
+        clear_old_search_results_middleware(sensitive_tools_names),
+        sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
         format_prompt_middleware(CAR_RENTAL_PROMPT),
-        budget_middleware(CAR_RENTAL_BUDGET_POLICY, "car_rental_agent"),
+        budget_middleware(CAR_RENTAL_BUDGET_POLICY, "car_rental_agent",parallel_tool_calls=True),
     ],
 )

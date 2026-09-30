@@ -1,6 +1,6 @@
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
-from budget_caping import budget_middleware, BudgetPolicy
+from .budget_caping import budget_middleware, BudgetPolicy
  
 from tools.flights import (
     cancel_ticket,
@@ -11,6 +11,8 @@ from .common import (
     sensitive_tools_middleware, 
     complete_or_escalate,
     format_prompt_middleware,
+    clear_old_search_results_middleware,
+    TravelState
 )
 
 #  Tools
@@ -46,15 +48,17 @@ FLIGHT_BUDGET_POLICY = BudgetPolicy(
     trend_cntr=2 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
-model = init_chat_model(model=FLIGHT_BUDGET_POLICY.primary_model, temperature=0)
+# model = init_chat_model(model=FLIGHT_BUDGET_POLICY.primary_model, temperature=0)
 
 flight_agent = create_agent(
-    model=model.bind(parallel_tool_calls=True),
+    # model=model.bind(parallel_tool_calls=True),
     tools=flight_tools +[complete_or_escalate],
+    state_schema=TravelState,
     middleware = [
-        sensitive_tools_middleware(sensitive_tools_names),
+        clear_old_search_results_middleware(sensitive_tools_names),
+        sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
         format_prompt_middleware(FLIGHT_PROMPT),
-        budget_middleware(FLIGHT_BUDGET_POLICY, "flight_agent"),
+        budget_middleware(FLIGHT_BUDGET_POLICY, "flight_agent", parallel_tool_calls=True),
         ]
 )
 

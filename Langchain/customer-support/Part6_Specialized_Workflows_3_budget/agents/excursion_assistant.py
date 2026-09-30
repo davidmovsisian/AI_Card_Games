@@ -1,6 +1,6 @@
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
-from budget_caping import budget_middleware, BudgetPolicy
+from .budget_caping import budget_middleware, BudgetPolicy
 
 from tools.excursions import (
     book_excursion,
@@ -12,6 +12,8 @@ from .common import (
     sensitive_tools_middleware, 
     complete_or_escalate,
     format_prompt_middleware,
+    clear_old_search_results_middleware,
+    TravelState
 )
 
 excursion_tools = [book_excursion, cancel_excursion, search_trip_recommendations, update_excursion]
@@ -52,14 +54,16 @@ EXCURSION_BUDGET_POLICY = BudgetPolicy(
     trend_cntr=2 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
-model = init_chat_model(model=EXCURSION_BUDGET_POLICY.primary_model, temperature=0)
+# model = init_chat_model(model=EXCURSION_BUDGET_POLICY.primary_model, temperature=0)
 
 excursion_agent = create_agent(
-    model = model.bind(parallel_tool_calls=True),
+    # model = model.bind(parallel_tool_calls=True),
     tools = excursion_tools + [complete_or_escalate],
+    state_schema=TravelState,
     middleware = [
-        sensitive_tools_middleware(sensitive_tools_names),
+        clear_old_search_results_middleware(sensitive_tools_names),
+        sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
         format_prompt_middleware(EXCURSION_PROMPT),
-        budget_middleware(EXCURSION_BUDGET_POLICY, "excursion_agent"),
+        budget_middleware(EXCURSION_BUDGET_POLICY, "excursion_agent", parallel_tool_calls=True),
         ]
 )

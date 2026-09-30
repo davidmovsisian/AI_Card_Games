@@ -131,7 +131,7 @@ def prompt_node(state: State):
     response = llm.invoke(system)
     return {
         "messages": [response],
-        "prompt_created_at": datetime.now(timezone.utc).isoformat
+        "prompt_created_at": datetime.now(timezone.utc).isoformat()
     }
 
 #tool to save the collected instructions

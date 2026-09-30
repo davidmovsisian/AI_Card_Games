@@ -1,6 +1,6 @@
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
-from budget_caping import budget_middleware, BudgetPolicy
+from .budget_caping import budget_middleware, BudgetPolicy
 
 from tools.hotels import (
     book_hotel,
@@ -12,6 +12,8 @@ from .common import (
     sensitive_tools_middleware, 
     complete_or_escalate,
     format_prompt_middleware,
+    clear_old_search_results_middleware,
+    TravelState
 )
 
 hotel_tools = [search_hotels, book_hotel, update_hotel, cancel_hotel]
@@ -53,14 +55,16 @@ HOTEL_BUDGET_POLICY = BudgetPolicy(
     trend_cntr=2 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
-model = init_chat_model(model=HOTEL_BUDGET_POLICY.primary_model, temperature=0)
+# model = init_chat_model(model=HOTEL_BUDGET_POLICY.primary_model, temperature=0)
 
 hotel_agent = create_agent(
-    model = model.bind(parallel_tool_calls=True),
+    # model = model.bind(parallel_tool_calls=True),
     tools = hotel_tools + [complete_or_escalate],
+    state_schema=TravelState,
     middleware = [
-        sensitive_tools_middleware(sensitive_tools_names),
+        clear_old_search_results_middleware(sensitive_tools_names),
+        sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
         format_prompt_middleware(HOTEL_PROMPT),
-        budget_middleware(HOTEL_BUDGET_POLICY, "hotel_agent"),
+        budget_middleware(HOTEL_BUDGET_POLICY, "hotel_agent", parallel_tool_calls=True),
         ]
 )

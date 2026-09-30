@@ -43,6 +43,6 @@ builder.add_node("primary_agent", primary_agent)
 memory = InMemorySaver()
 part_5_graph = builder.compile(checkpointer=memory)
 
-# Persist a visual of the compiled graph next to this file.
-img_path = Path(__file__).resolve().parent / "graph.png"
-part_5_graph.get_graph(xray=True).draw_mermaid_png(output_file_path=img_path)
+# # Persist a visual of the compiled graph next to this file.
+# img_path = Path(__file__).resolve().parent / "graph.png"
+# part_5_graph.get_graph(xray=True).draw_mermaid_png(output_file_path=img_path)
