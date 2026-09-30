@@ -1,7 +1,6 @@
 from pathlib import Path
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import tools_condition
 
 from tools.flights import fetch_user_flight_information
 from .common import TravelState

@@ -1,19 +1,11 @@
-from langchain.agents import create_agent
-from langchain.chat_models import init_chat_model
-from .budget_caping import budget_middleware, BudgetPolicy
+from .budget_caping import BudgetPolicy
+from .specialist import build_specialist
 
 from tools.car_rental import (
     book_car_rental,
     cancel_car_rental,
     search_car_rentals,
     update_car_rental,
-)
-from .common import (
-    sensitive_tools_middleware,
-    complete_or_escalate,
-    format_prompt_middleware,
-    clear_old_search_results_middleware,
-    TravelState
 )
 
 car_rental_tools = [book_car_rental, cancel_car_rental, search_car_rentals, update_car_rental]
@@ -52,25 +44,27 @@ CAR_RENTAL_PROMPT = """
 """
 
 CAR_RENTAL_BUDGET_POLICY = BudgetPolicy(
-    budget_fraction=0.20,
+    budget_fraction=0.15,
     primary_model="openai:gpt-4o",
-    primary_max_tokens=1000, #maximal output tokens for primary model
+    primary_max_tokens=300, #maximal output tokens for primary model
     fallback_model="openai:gpt-4o-mini",
-    fallback_max_tokens=600, #maximal output tokens for fallback model,
+    fallback_max_tokens=150, #maximal output tokens for fallback model,
     trend_cntr=2 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
-# model = init_chat_model(model=CAR_RENTAL_BUDGET_POLICY.primary_model, temperature=0)
-
-
-car_rental_agent = create_agent(
-    # model=model.bind(parallel_tool_calls=True),
-    tools=car_rental_tools + [complete_or_escalate],
-    state_schema=TravelState,
-    middleware=[
-        clear_old_search_results_middleware(sensitive_tools_names),
-        sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
-        format_prompt_middleware(CAR_RENTAL_PROMPT),
-        budget_middleware(CAR_RENTAL_BUDGET_POLICY, "car_rental_agent",parallel_tool_calls=True),
-    ],
+car_rental_agent = build_specialist(
+    "car_rental_agent", car_rental_tools, sensitive_tools_names, CAR_RENTAL_PROMPT, CAR_RENTAL_BUDGET_POLICY
 )
+
+# model = init_chat_model(model=CAR_RENTAL_BUDGET_POLICY.primary_model, temperature=0)
+# car_rental_agent = create_agent(
+#     model=model.bind(parallel_tool_calls=True),
+#     tools=car_rental_tools + [complete_or_escalate],
+#     state_schema=TravelState,
+#     middleware=[
+#         clear_old_search_results_middleware(sensitive_tools_names),
+#         sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
+#         format_prompt_middleware(CAR_RENTAL_PROMPT),
+#         budget_middleware(CAR_RENTAL_BUDGET_POLICY, "car_rental_agent",parallel_tool_calls=True),
+#     ],
+# )

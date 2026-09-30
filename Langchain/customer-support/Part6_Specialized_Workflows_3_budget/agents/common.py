@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from datetime import datetime
 import logging
 from typing_extensions import NotRequired
 from langchain.agents import AgentState
@@ -95,17 +95,11 @@ def format_prompt_middleware(prompt: str):
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse:
-        from datetime import datetime
-
-        user_info = request.state.get(
-            "user_info", "No user information available.")
-
-        handoff_data = _format_handoff(request.state.get("handoff_data"))
-
         
+        state = request.state
         formatted_prompt = prompt.format(
-            user_info=user_info,
-            handoff_data = handoff_data
+            user_info=state.get("user_info", "No user information available."),
+            handoff = _format_handoff(request.state.get("handoff_data")),
             time=datetime.now().isoformat(),
         )
         request = request.override(system_prompt=formatted_prompt)
@@ -236,17 +230,8 @@ def complete_or_escalate(
     Args:
         reason: Reason why the task is complete or why escalation is required.
     """
-    last_ai_message = next(
-        (
-            msg
-            for msg in reversed(runtime.state["messages"])
-            if isinstance(msg, AIMessage)
-            and any(
-                tc["id"] == runtime.tool_call_id for tc in msg.tool_calls
-            )
-        ),
-        None,
-    )
+
+    last_ai_message = find_calling_ai_message(runtime)
 
     transfer_message = ToolMessage(
         content=f"Resuming dialog with the host assistant. Reason: {reason}",

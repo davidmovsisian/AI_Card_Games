@@ -1,18 +1,10 @@
-from langchain.agents import create_agent
-from langchain.chat_models import init_chat_model
-from .budget_caping import budget_middleware, BudgetPolicy
+from .budget_caping import BudgetPolicy
+from .specialist import build_specialist
  
 from tools.flights import (
     cancel_ticket,
     search_flights,
     update_ticket_to_new_flight,
-)
-from .common import (
-    sensitive_tools_middleware, 
-    complete_or_escalate,
-    format_prompt_middleware,
-    clear_old_search_results_middleware,
-    TravelState
 )
 
 #  Tools
@@ -36,30 +28,38 @@ FLIGHT_PROMPT = """
             {user_info}
         </Flights>
 
+    Details passed from the primary assistant (use these to start; confirm with the user if unclear):
+        <Handoff>
+            {handoff}
+        </Handoff>
+
     Current time: {time}.
 """
 
 FLIGHT_BUDGET_POLICY = BudgetPolicy(
-    budget_fraction=0.20,
+    budget_fraction=0.15,
     primary_model="openai:gpt-4o",
-    primary_max_tokens=1000, #maximal output tokens for primary model
+    primary_max_tokens=300, #maximal output tokens for primary model
     fallback_model="openai:gpt-4o-mini",
-    fallback_max_tokens=600, #maximal output tokens for fallback model
+    fallback_max_tokens=150, #maximal output tokens for fallback model
     trend_cntr=2 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
-# model = init_chat_model(model=FLIGHT_BUDGET_POLICY.primary_model, temperature=0)
-
-flight_agent = create_agent(
-    # model=model.bind(parallel_tool_calls=True),
-    tools=flight_tools +[complete_or_escalate],
-    state_schema=TravelState,
-    middleware = [
-        clear_old_search_results_middleware(sensitive_tools_names),
-        sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
-        format_prompt_middleware(FLIGHT_PROMPT),
-        budget_middleware(FLIGHT_BUDGET_POLICY, "flight_agent", parallel_tool_calls=True),
-        ]
+flight_agent = build_specialist(
+    "flight_agent", flight_tools, sensitive_tools_names, FLIGHT_PROMPT, FLIGHT_BUDGET_POLICY
 )
+
+# model = init_chat_model(model=FLIGHT_BUDGET_POLICY.primary_model, temperature=0)
+# flight_agent = create_agent(
+#     # model=model.bind(parallel_tool_calls=True),
+#     tools=flight_tools +[complete_or_escalate],
+#     state_schema=TravelState,
+#     middleware = [
+#         clear_old_search_results_middleware(sensitive_tools_names),
+#         sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
+#         format_prompt_middleware(FLIGHT_PROMPT),
+#         budget_middleware(FLIGHT_BUDGET_POLICY, "flight_agent", parallel_tool_calls=True),
+#         ]
+# )
 
 

@@ -8,7 +8,6 @@ from langchain.tools import ToolRuntime, tool
 from langgraph.types import Command
 from langchain.messages import ToolMessage
 from .budget_caping import budget_middleware, BudgetPolicy
-from tools.car_rental import search_car_rentals
 from tools.excursions import search_trip_recommendations
 from tools.hotels import search_hotels
 
@@ -196,11 +195,11 @@ PRIMARY_PROMPT = """
 """
 
 PRIMARY_BUDGET_POLICY = BudgetPolicy(
-    budget_fraction=0.20,
+    budget_fraction=0.40,
     primary_model="openai:gpt-4o",
-    primary_max_tokens=1000, #maximal output tokens for primary model
+    primary_max_tokens=300, #maximal output tokens for primary model
     fallback_model="openai:gpt-4o-mini",
-    fallback_max_tokens=600, #maximal output tokens for fallback model
+    fallback_max_tokens=150, #maximal output tokens for fallback model
     trend_cntr=1 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
