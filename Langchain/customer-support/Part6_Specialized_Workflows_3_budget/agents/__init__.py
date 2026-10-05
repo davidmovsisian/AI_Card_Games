@@ -1,3 +1,3 @@
-from .graph import part_5_graph
+from .graph import part_6_graph
 
-__all__ = ["part_5_graph"]
+__all__ = ["part_6_graph"]

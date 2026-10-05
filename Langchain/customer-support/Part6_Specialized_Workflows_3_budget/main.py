@@ -1,5 +1,5 @@
 import uuid
-from .agents import part_5_graph
+from .agents import part_6_graph
 from .agents.budget_caping import (
     GraphBudget, 
     set_graph_budget, 
@@ -49,7 +49,7 @@ def pending_interrupts(config: dict) -> list:
     and they can come from inside a sub-agent, so read them off the tasks.
     """
 
-    snapshot = part_5_graph.get_state(config)
+    snapshot = part_6_graph.get_state(config)
     return [i for task in snapshot.tasks for i in task.interrupts]
 
 def ask_approval(payload: dict) -> dict:
@@ -70,7 +70,7 @@ def ask_approval(payload: dict) -> dict:
     return {"approved": False, "reason": answer}
 
 def run_graph(graph_input, config: dict, printed: set):
-    for event in part_5_graph.stream(graph_input, config, stream_mode="values"):
+    for event in part_6_graph.stream(graph_input, config, stream_mode="values"):
         _print_event(event, printed)
 
 # Update with the backup file so we can restart from the original place in each section
@@ -114,6 +114,8 @@ def main():
         }
     finally:
         reset_graph_budget(budget_token)
+        graph_budget.report()
+        graph_budget.estimation_accuracy_report()
 
     graph_budget.report()
     graph_budget.estimation_accuracy_report()

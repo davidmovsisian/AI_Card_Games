@@ -40,7 +40,7 @@ builder.add_node("excursion_agent", excursion_agent)
 builder.add_node("primary_agent", primary_agent)
 
 memory = InMemorySaver()
-part_5_graph = builder.compile(checkpointer=memory)
+part_6_graph = builder.compile(checkpointer=memory)
 
 # # Persist a visual of the compiled graph next to this file.
 # img_path = Path(__file__).resolve().parent / "graph.png"
