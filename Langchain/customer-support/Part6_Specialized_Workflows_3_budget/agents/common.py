@@ -247,6 +247,7 @@ def complete_or_escalate(
         update={
             "active_agent": "primary_agent",
             "messages": messages,
+            "handoff_data": {}
         },
         graph=Command.PARENT,
     )

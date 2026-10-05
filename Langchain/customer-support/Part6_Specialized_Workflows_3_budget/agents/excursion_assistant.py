@@ -23,7 +23,7 @@ EXCURSION_PROMPT = """
         Do not waste the user's time. Do not make up invalid tools or functions.
 
     
-    Some examples for which you should CompleteOrEscalate:
+    Some examples for which you should complete_or_escalate:
     - 'nevermind i think I'll book separately.'
     - 'i need to figure out transportation while i'm there.'
     - 'Oh wait i haven't booked my flight yet i'll do that first.'
@@ -54,16 +54,3 @@ EXCURSION_BUDGET_POLICY = BudgetPolicy(
 excursion_agent = build_specialist(
     "excursion_agent", excursion_tools, sensitive_tools_names, EXCURSION_PROMPT, EXCURSION_BUDGET_POLICY
 )
-
-# model = init_chat_model(model=EXCURSION_BUDGET_POLICY.primary_model, temperature=0)
-# excursion_agent = create_agent(
-#     # model = model.bind(parallel_tool_calls=True),
-#     tools = excursion_tools + [complete_or_escalate],
-#     state_schema=TravelState,
-#     middleware = [
-#         clear_old_search_results_middleware(sensitive_tools_names),
-#         sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
-#         format_prompt_middleware(EXCURSION_PROMPT),
-#         budget_middleware(EXCURSION_BUDGET_POLICY, "excursion_agent", parallel_tool_calls=True),
-#         ]
-# )

@@ -117,3 +117,6 @@ def main():
 
     graph_budget.report()
     graph_budget.estimation_accuracy_report()
+
+if __name__ == "__main__":
+    main()

@@ -49,17 +49,4 @@ flight_agent = build_specialist(
     "flight_agent", flight_tools, sensitive_tools_names, FLIGHT_PROMPT, FLIGHT_BUDGET_POLICY
 )
 
-# model = init_chat_model(model=FLIGHT_BUDGET_POLICY.primary_model, temperature=0)
-# flight_agent = create_agent(
-#     # model=model.bind(parallel_tool_calls=True),
-#     tools=flight_tools +[complete_or_escalate],
-#     state_schema=TravelState,
-#     middleware = [
-#         clear_old_search_results_middleware(sensitive_tools_names),
-#         sensitive_tools_middleware(sensitive_tools_names), #interrupt on sensitive tools
-#         format_prompt_middleware(FLIGHT_PROMPT),
-#         budget_middleware(FLIGHT_BUDGET_POLICY, "flight_agent", parallel_tool_calls=True),
-#         ]
-# )
-
 

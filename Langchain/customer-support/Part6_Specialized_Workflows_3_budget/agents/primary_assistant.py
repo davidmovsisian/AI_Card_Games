@@ -203,12 +203,16 @@ PRIMARY_BUDGET_POLICY = BudgetPolicy(
     trend_cntr=1 #if number of node calls > trend_cntr, early swith to fallback model to preserve the node's budget
 )
 
-# model = init_chat_model(model=PRIMARY_BUDGET_POLICY.primary_model, temperature=0)
+model = init_chat_model(model=PRIMARY_BUDGET_POLICY.primary_model, temperature=0)
+
+excursion_agent = build_specialist(
+    "excursion_agent", excursion_tools, sensitive_tools_names, EXCURSION_PROMPT, EXCURSION_BUDGET_POLICY
+)
 
 primary_agent = create_agent(
     # One tool call at a time: parallel handoffs would emit two Commands with
     # different `goto` values and both write active_agent / handoff_data.
-    # model=model.bind(parallel_tool_calls=False),
+    model=model.bind(parallel_tool_calls=False),
     tools=primary_assistant_tools + handoff_tools,
     state_schema=TravelState,
     middleware=[

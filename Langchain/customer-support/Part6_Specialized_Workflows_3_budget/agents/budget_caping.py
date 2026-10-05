@@ -705,7 +705,7 @@ def _token_count(
 
     openai_messages = convert_to_openai_messages(messages)
 
-    kwargs: dict[str, Any] = {"model": model_name, "messages": messages}
+    kwargs: dict[str, Any] = {"model": model_name, "messages": openai_messages}
     if tools:
         kwargs["tools"] = [convert_to_openai_tool(tool) for tool in tools]
 
