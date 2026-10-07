@@ -177,7 +177,7 @@ async def ai_turn(game_id: str, ai_player_name: str):
     }
 
 def get_game_state_summary(action : str, game: GameEngine) -> GameStateSummary:
-    # write state ro the file
+    # write state to the file
     summary_file_path = Path("game_state_summary.json")
     state = GameStateSummary(
         current_player=game.current_player_name,
