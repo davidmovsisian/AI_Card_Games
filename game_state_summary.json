@@ -1,56 +1,23 @@
 {
-  "action": "ai_turn",
+  "action": "play",
   "state": {
-    "current_player": "AI_1",
+    "current_player": "David",
     "top_card": {
       "suit": "Hearts",
       "rank": "J"
     },
     "active_suit": "Hearts",
-    "winner": "AI_1",
+    "winner": "David",
     "pending_suit_player": null,
     "players": {
       "David": {
         "type": "human",
-        "hand_count": 8,
-        "hand": [
-          {
-            "suit": "Diamonds",
-            "rank": "5"
-          },
-          {
-            "suit": "Hearts",
-            "rank": "7"
-          },
-          {
-            "suit": "Spades",
-            "rank": "K"
-          },
-          {
-            "suit": "Spades",
-            "rank": "Q"
-          },
-          {
-            "suit": "Hearts",
-            "rank": "3"
-          },
-          {
-            "suit": "Diamonds",
-            "rank": "6"
-          },
-          {
-            "suit": "Diamonds",
-            "rank": "J"
-          },
-          {
-            "suit": "Hearts",
-            "rank": "K"
-          }
-        ]
+        "hand_count": 0,
+        "hand": []
       },
       "AI_1": {
         "type": "ai",
-        "hand_count": 0,
+        "hand_count": 1,
         "hand": "HIDDEN"
       }
     }

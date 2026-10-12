@@ -6,7 +6,7 @@ from typing import Dict
 from pathlib import Path
 from engine import GameEngine
 # from ai_service import AIService
-from ai_service import choose_move
+from ai_service import AIService
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ai_service = AIService()
+ai_service = AIService()
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 if not FRONTEND_DIR.is_dir():
     raise RuntimeError(f"Frontend directory not found: {FRONTEND_DIR}")
@@ -175,17 +175,20 @@ async def ai_turn(game_id: str, ai_player_name: str):
         if drawn_cards and game.top_card.to_dict() == drawn_cards[-1] and game.top_card.rank == '8':
             action_taken += f" It drew an 8 and changed the suit to {game.declared_suit}."
     else:
-        chosen_index, declared_suit = legal[0], None
-        ai_decision = await choose_move(
-            ai_hand=[c.to_dict() for c in current_player.hand],
-            legal_indices=legal,
-            top_card=game.top_card.to_dict(),
-            active_suit=game.active_suit,
-            house_rules=game.house_rules
-        )
+        chosen_index, declared_suit = None, None
+        try:
+            ai_decision = await ai_service.choose_move(
+                ai_hand=[c.to_dict() for c in current_player.hand],
+                legal_indices=legal,
+                top_card=game.top_card.to_dict(),
+                active_suit=game.active_suit,
+                house_rules=game.house_rules
+            )
+        except Exception:
+            raise HTTPException(status_code=500, detail=f"AI execution error: {str(e)}")
 
         if ai_decision is not None:
-            banter = ai_decision.roleplay_comment
+            banter = ai_decision.roleplay_comment if game.house_rules else ""
             if ai_decision.chosen_index in legal:
                 chosen_index = ai_decision.chosen_index
                 declared_suit = ai_decision.declared_suit
@@ -200,7 +203,7 @@ async def ai_turn(game_id: str, ai_player_name: str):
         try:
             game.play_card(ai_player_name, chosen_index, declared_suit)
         except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"AI move failed: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"AI move failed: {str(e)}")
 
         action_taken = f"AI played {card_played}"
         if declared_suit:
