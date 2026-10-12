@@ -8,6 +8,7 @@ from typing import Optional
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SYSTEM_TEMPLATE = (PROMPTS_DIR / "system_prompt.txt").read_text(encoding="utf-8")
 USER_TEMPLATE = (PROMPTS_DIR / "user_prompt.txt").read_text(encoding="utf-8")
+MODEL_NAME = os.environ.get("CRAZY8_MODEL", "gpt-4o")
 
 class AIMoveDecision(BaseModel):
     chosen_index: int = Field(description="The 0-based index of the card to play from the hand. MUST be one of the legal indices provided.")
@@ -36,7 +37,7 @@ class AIService:
         # run AI call in separate thread 
         response = await asyncio.to_thread(
             self.client.responses.parse,
-                model="gpt-4o",
+                model=MODEL_NAME,
                 input=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}

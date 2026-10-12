@@ -11,7 +11,5 @@ langgraph_api/
 *.sqlite3
 *.db
 Langchain/customer-support/*.sqlite
-Crazy_Eights_langgraph
-Crazy_Eights_langgraph/*
 Crazy_Eights_langgraph_old
 Crazy_Eights_langgraph_old/*
