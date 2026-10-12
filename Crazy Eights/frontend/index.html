@@ -52,6 +52,16 @@
               <div id="top-card" class="card face">—</div>
               <div id="active-suit-badge" class="suit-badge hidden"></div>
             </div>
+            <!-- Suit selector: shown beside the Top Card when the player must choose a suit -->
+            <div id="suit-selector" class="suit-selector hidden">
+              <p>Choose the new suit:</p>
+              <div class="suit-buttons">
+                <button class="suit-btn" data-suit="Hearts">♥ Hearts</button>
+                <button class="suit-btn" data-suit="Diamonds">♦ Diamonds</button>
+                <button class="suit-btn" data-suit="Clubs">♣ Clubs</button>
+                <button class="suit-btn" data-suit="Spades">♠ Spades</button>
+              </div>
+            </div>
           </div>
 
           <!-- Players -->
@@ -64,17 +74,6 @@
             <div class="action-row">
               <button id="play-button" type="button" disabled>Play Selected Card</button>
               <button id="draw-button" type="button">Draw from Pile</button>
-            </div>
-
-            <!-- Suit selector (shown only when an 8 is played) -->
-            <div id="suit-selector" class="suit-selector hidden">
-              <p>You played an 8 — choose the new suit:</p>
-              <div class="suit-buttons">
-                <button class="suit-btn" data-suit="Hearts">♥ Hearts</button>
-                <button class="suit-btn" data-suit="Diamonds">♦ Diamonds</button>
-                <button class="suit-btn" data-suit="Clubs">♣ Clubs</button>
-                <button class="suit-btn" data-suit="Spades">♠ Spades</button>
-              </div>
             </div>
           </div>
 

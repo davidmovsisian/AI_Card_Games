@@ -27,4 +27,5 @@ class GameStateSummary(BaseModel):
     top_card: CardModel
     active_suit: str
     winner: Optional[str] = None
+    pending_suit_player: Optional[str] = None
     players: Dict[str, PlayerModel]

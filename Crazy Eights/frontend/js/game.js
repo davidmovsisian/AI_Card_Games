@@ -1,5 +1,4 @@
-import { getState, playCard, drawCard, aiTurn } from './api.js';
-
+import { getState, playCard, drawCard, aiTurn, declareSuit } from './api.js';
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 
 const turnIndicator   = document.getElementById('turn-indicator');
@@ -218,8 +217,12 @@ function renderState(state) {
 
 // ── Suit selector modal ───────────────────────────────────────────────────────
 
-function showSuitSelector() {
+function showSuitSelector(message = 'You played an 8 — choose the new suit:') {
   return new Promise((resolve) => {
+    const prompt = suitSelector.querySelector('p');
+    if (prompt) prompt.textContent = message;
+    playButton.disabled = true;
+    drawButton.disabled = true;   // nothing else may be done until a suit is chosen
     suitSelector.classList.remove('hidden');
     suitSelector.querySelectorAll('.suit-btn').forEach((btn) => {
       btn.onclick = () => {
@@ -363,8 +366,24 @@ drawButton.addEventListener('click', async () => {
       addLog('You drew a card.');
     }
 
-    const newState = result.state;
+    let newState = result.state;
     renderState(newState);
+
+    // Drew a playable 8: the human chooses the new suit (ask again if the request fails)
+    if (result.awaiting_suit || newState.pending_suit_player === humanPlayer) {
+      let declared = null;
+      while (!declared) {
+        const suit = await showSuitSelector('You drew an 8 — choose the new suit:');
+        try {
+          declared = await declareSuit(gameId, humanPlayer, suit);
+          addLog(`You declared ${suit}`);
+        } catch (err) {
+          gameError.textContent = err.message || 'Failed to declare suit.';
+        }
+      }
+      newState = declared.state;
+      renderState(newState);
+    }
 
     if (newState.winner) {
       finishGame(`🎉 ${newState.winner} wins!`);

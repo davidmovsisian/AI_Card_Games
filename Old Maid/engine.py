@@ -108,10 +108,11 @@ class GameEngine:
         return list(self.players.keys())[next_idx]
     
     def execute_draw(self, current_player: str, target_player: str, card_index: int):
-        print(f"Executing draw: {current_player} draws from {target_player} at index {card_index}")
         if card_index < 0 or card_index >= len(self.players[target_player].hand):
             raise IndexError("Card index out of range.")
 
+        print(f"Executing draw: {current_player} draws from {target_player} at index {card_index}")
+        
         original_order = list(self.players.keys())
         
         drawn_card = self.players[target_player].hand.pop(card_index)

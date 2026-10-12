@@ -7,7 +7,10 @@ Top Card on Discard Pile:
 Active Suit:
 {active_suit}
 
+Legal card indices (choose ONE of these as `chosen_index`):
+{legal_indices}
+
 Make your choice strategically:
-1. If you have a playable card in your hand, set `use_draw_pile` to false and provide the `chosen_index` of the card you want to PLAY. If you choose an 8, also specify a strategic `declared_suit`. If you do NOT play an 8, leave `declared_suit` as null.
-2. If you have absolutely NO playable cards in your hand, you cannot play. Set `use_draw_pile` to true (the `chosen_index` will be ignored) so you can DRAW from the deck.
+1. Set `choosen_index` of the card you want to play. It must be one of the legal indices above 
+2. If you choose an 8, also specify a strategic `declared_suit`. If you do NOT play an 8, leave `declared_suit` as null.
 3. Generate a fun comment based on the house rules and return in `roleplay_comment`. if house rules is empty leave `roleplay_comment` as null.

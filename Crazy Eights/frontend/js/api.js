@@ -101,3 +101,8 @@ export function aiTurn(gameId, ai_player_name) {
   const qs = new URLSearchParams({ ai_player_name }).toString();
   return request(`/game/${encodeURIComponent(gameId)}/ai-turn?${qs}`, { method: 'POST' });
 }
+
+export function declareSuit(gameId, player_name, suit) {
+  const qs = new URLSearchParams({ player_name, suit }).toString();
+  return request(`/game/${encodeURIComponent(gameId)}/declare_suit?${qs}`, { method: 'POST' });
+}
