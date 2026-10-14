@@ -223,11 +223,6 @@ function renderState(state) {
 }
 
 function gameOverMessage(state) {
-  if (state.end_reason === 'stalemate') {
-    return state.winner
-      ? `🤝 Stalemate — ${state.winner} has the fewest cards and wins!`
-      : '🤝 Stalemate — nobody can move, it\'s a tie.';
-  }
   return `🎉 ${state.winner} wins!`;
 }
 

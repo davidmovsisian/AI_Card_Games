@@ -56,7 +56,6 @@ export function startGame(gameId) {
  *   active_suit     : string
  *   winner          : string | null
  *   game_over       : boolean
- *   end_reason      : "win" | "stalemate" | null
  *   pending_suit_player : string | null
  *   players         : {
  *     [name]: {
