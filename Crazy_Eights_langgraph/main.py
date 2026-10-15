@@ -106,6 +106,9 @@ async def run_graph(game_id: str, graph_input: dict) -> dict:
     """Invoke the graph and collect the events produced until it comes to rest."""
     graph = await get_graph(game_id)
     lock = rt.locks.setdefault(game_id, asyncio.Lock())
+    if lock.locked():
+        # Reject instead of queueing: the client would otherwise hang until the previous run (AI turns) ends.
+        raise HTTPException(status_code=409, detail="The game is busy - wait for the current move to finish.")
     async with lock:
         events: List[dict] = []
         async for chunk in graph.astream(graph_input, config_for(game_id), stream_mode="updates"):
