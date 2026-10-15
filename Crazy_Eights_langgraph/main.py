@@ -10,14 +10,14 @@ import json
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, AsyncGenerator
 from uuid import uuid4
 
 import aiosqlite
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
@@ -124,6 +124,44 @@ async def run_graph(game_id: str, graph_input: dict) -> dict:
     return {"events": events, "state": engine.summarize(game)}
 
 
+# ── streaming helper ──────────────────────────────────────────────────────────
+
+async def _sse_generator_for_graph(game_id: str, graph_input: dict) -> AsyncGenerator[bytes, None]:
+    """Async generator that yields Server-Sent Events (text/event-stream) for every graph event as it arrives.
+
+    Each yielded chunk is a properly formatted SSE block with a single `data: ...` line containing JSON.
+    At the end a final object with `type: "final"` and `state: <GameStateSummary>` is emitted.
+    """
+    graph = await get_graph(game_id)
+    lock = rt.locks.setdefault(game_id, asyncio.Lock())
+    if lock.locked():
+        # The route caller will observe the 409 before the stream starts; raise to abort.
+        raise HTTPException(status_code=409, detail="The game is busy - wait for the current move to finish.")
+
+    async with lock:
+        events: List[dict] = []
+        async for chunk in graph.astream(graph_input, config_for(game_id), stream_mode="updates"):
+            for update in chunk.values():
+                if update and update.get("last_event"):
+                    ev = update["last_event"]
+                    events.append(ev)
+                    payload = json.dumps({"type": "event", "event": ev})
+                    yield f"data: {payload}\n\n".encode()
+        snapshot = await graph.aget_state(config_for(game_id))
+    game = GameState.model_validate(snapshot.values["game"])
+
+    # If any error event happened, emit it as the last event and close with a final payload containing the error.
+    error = next((e for e in events if e["type"] == "error"), None)
+    if error:
+        payload = json.dumps({"type": "error", "error": error["text"]})
+        yield f"data: {payload}\n\n".encode()
+        return
+
+    final_state = engine.summarize(game)
+    payload = json.dumps({"type": "final", "state": final_state})
+    yield f"data: {payload}\n\n".encode()
+
+
 # ── lobby ─────────────────────────────────────────────────────────────────────
 
 @app.post("/game/create", response_model=CreateGameResponse)
@@ -194,6 +232,32 @@ async def draw_card(game_id: str, player_name: str):
 @app.post("/game/{game_id}/declare_suit", response_model=MoveResponse)
 async def declare_suit(game_id: str, player_name: str, suit: str):
     return await run_graph(game_id, {"human_move": {"player": player_name, "action": "declare", "suit": suit}})
+
+
+# ── streaming endpoints (SSE) ─────────────────────────────────────────────────
+
+@app.post("/game/{game_id}/play/stream")
+async def play_card_stream(game_id: str, payload: PlayCardRequest):
+    try:
+        gen = _sse_generator_for_graph(game_id, {"human_move": {
+            "player": payload.player_name, "action": "play",
+            "card_index": payload.card_index, "declared_suit": payload.declared_suit,
+        }})
+    except HTTPException as exc:
+        raise
+    return StreamingResponse(gen, media_type="text/event-stream")
+
+
+@app.post("/game/{game_id}/draw/stream")
+async def draw_card_stream(game_id: str, player_name: str):
+    gen = _sse_generator_for_graph(game_id, {"human_move": {"player": player_name, "action": "draw"}})
+    return StreamingResponse(gen, media_type="text/event-stream")
+
+
+@app.post("/game/{game_id}/declare_suit/stream")
+async def declare_suit_stream(game_id: str, player_name: str, suit: str):
+    gen = _sse_generator_for_graph(game_id, {"human_move": {"player": player_name, "action": "declare", "suit": suit}})
+    return StreamingResponse(gen, media_type="text/event-stream")
 
 
 if __name__ == "__main__":
