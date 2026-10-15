@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+aiosqlite
+langgraph>=1.0
+langgraph-checkpoint-sqlite
+langchain-openai
+pydantic>=2

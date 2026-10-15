@@ -31,32 +31,9 @@ def _get_chain():
             ('human', USER_TEMPLATE)
         ]) 
         llm = ChatOpenAI(model=MODEL_NAME, temperature=0.7, max_tokens=100)
-        _chain = prompt | llm
+        _chain = prompt | llm.with_structured_output(AIMoveDecision)
     return _chain
 
-def build_prompt_inputs(
-        ai_hand: List[dict],
-        legal_indices: List[int],
-        top_card: dict,
-        active_suit: str,
-        house_rules: str):
-    
-    rules = (house_rules or "").strip()
-    if rules:
-        comment_instruction = ("Write ONE short, fun comment about your move in the spirit of the house rules "
-                                "above and return it in `roleplay_comment`.")
-    else:
-        comment_instruction = ("There are no house rules for this game, so do NOT write any comment: "
-                                   "set `roleplay_comment` to null.")
-
-    return {
-        "house_rules": rules or "None",
-        "comment_instruction": comment_instruction,
-        "ai_hand": ai_hand,
-        "legal_indices": legal_indices,
-        "top_card": top_card,
-        "active_suit": active_suit,
-    }
 
 async def choose_move(
     ai_hand: List[dict],
@@ -65,7 +42,12 @@ async def choose_move(
     active_suit: str,
     house_rules: str
 ):
-    return await _get_chain().ainvoke(
-        build_prompt_inputs(ai_hand, legal_indices, top_card, active_suit, house_rules)
-    )
+    return await _get_chain().ainvoke({
+        "ai_hand": ai_hand,
+        "legal_indices": legal_indices,
+        "top_card": top_card,
+        "active_suit": active_suit,
+        "house_rules": house_rules,
+    })
+    
 

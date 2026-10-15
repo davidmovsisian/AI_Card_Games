@@ -33,12 +33,12 @@ def _event(type: str, player: Optional[str], text: str, g: GameState, **extra) -
     return {"type": type, "player": player, "text": text, "state": engine.summarize(g), **extra}
 
 def _draw_event(name: str, g: GameState, res: engine.DrawResult, banter: Optional[str] = None) -> dict:
-    labels = ",".join(c.label for c in res.drawn)
+    labels = ", ".join(c.label for c in res.drawn)
     if res.passed:
         text = (f"{name} drew {labels} but nothing was playable — turn skipped." 
         if res.drawn else f"{name} could not draw (no cards left) — turn skipped.")
     elif res.awaiting_suit:
-        text = f"{name} drew labels and played 8 — choosing a suit…"
+        text = f"{name} drew {labels} and played 8 — choosing a suit…"
     elif res.declared_suit:
         text = f"{name} drew {labels}, played the 8 and changed the suit to {res.declared_suit}."
     else:
@@ -88,7 +88,7 @@ def make_human_node(name: str):
                 suit = move.get("declared_suit")
                 card = engine.play_card(g, name, move.get("card_index"), suit)
                 event = _play_event(name, g, card, suit if card.rank == '8' else None)
-            elif action == "drew":
+            elif action == "draw":
                 res = engine.draw_until_playable(g, name, auto_declare=False)
                 event = _draw_event(name, g, res)
             else:
@@ -129,14 +129,14 @@ def make_ai_node(name: str, ai_chooser: AIChooser) -> dict:
 
         card = g.players[name].hand[chosen]
         if card.rank == '8':
-            if not suit:
+            if suit not in engine.SUITS:
                 suit = engine.best_suit([c for i, c in enumerate(g.players[name].hand) if i != chosen ])
         else:
             suit = None
 
         engine.play_card(g, name, chosen, suit)
 
-        return {"game": g.model_dump(), "last_event": _play_event(name, g, card, suit)}
+        return {"game": g.model_dump(), "last_event": _play_event(name, g, card, suit, banter)}
 
     return ai_node
 
@@ -148,40 +148,40 @@ def build_graph(players: List[Tuple[str, str]], checkpointer=None, ai_chooser: O
         from ai_player import choose_move
         ai_chooser = choose_move
 
-        names = [n for n, _ in players]
-        is_human = {n: t=='human' for n, t in players}
-        node_of = {n: node_name(i) for i, n in enumerate(names)} #{name: player_1}
+    names = [n for n, _ in players]
+    is_human = {n: t=='human' for n, t in players}
+    node_of = {n: node_name(i) for i, n in enumerate(names)} #{name: player_1}
 
-        def current_name(game: dict) -> str:
-            return names[game["current_turn_index"]]
-        
-        def entry_root(state: GraphState):
-            game = state["game"]
-            if not game["started"]:
-                return "setup"
-            if game["game_over"]:
-                return END
-            return node_of[current_name(game)]            # a human's node consumes `human_move`
+    def current_name(game: dict) -> str:
+        return names[game["current_turn_index"]]
+    
+    def entry_root(state: GraphState):
+        game = state["game"]
+        if not game["started"]:
+            return "setup"
+        if game["game_over"]:
+            return END
+        return node_of[current_name(game)]            # a human's node consumes `human_move`
 
-        def router(state: GraphState):
-            game = state["game"]
-            if game["game_over"]:
-                return END
-            who = current_name(game)
-            if game["pending_suit_player"] or is_human(who): 
-                return END                  # rest here until the human acts
-            return node_of(who)             # ai node
+    def router(state: GraphState):
+        game = state["game"]
+        if game["game_over"]:
+            return END
+        who = current_name(game)
+        if game["pending_suit_player"] or is_human[who]: 
+            return END                  # rest here until the human acts
+        return node_of(who)             # ai node
 
-        path_map ={"setup": "setup", **{v: v for v in node_of.values()}, END: END}
+    path_map ={"setup": "setup", **{v: v for v in node_of.values()}, END: END}
 
-        builder = StateGraph(GraphState)
-        builder.add_node("setup", setup_node)
-        for name in names:
-            node = make_human_node(name) if is_human(name) else make_ai_node
-            builder.add_node(node_of(name), node)
+    builder = StateGraph(GraphState)
+    builder.add_node("setup", setup_node)
+    for name in names:
+        node = make_human_node(name) if is_human[name] else make_ai_node(name)
+        builder.add_node(node_of(name), node)
 
-        builder.add_conditional_edges(START, entry_root, path_map)
-        for current_node in ["setup", *node_of.values()]:
-            builder.add_conditional_edges(current_node, router, path_map)
+    builder.add_conditional_edges(START, entry_root, path_map)
+    for current_node in ["setup", *node_of.values()]:
+        builder.add_conditional_edges(current_node, router, path_map)
 
-        return builder.compile()
+    return builder.compile(checkpointer=checkpointer)

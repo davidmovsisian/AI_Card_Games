@@ -1,0 +1,23 @@
+Things You Should Know:
+The basic gameplay of Crazy Eights involves trying to get rid of your cards by matching either the rank or suit of the face-up card in the discard pile.
+The objective of the game is to be the first one to discard all your cards. 
+
+
+Setup:
+1. Shuffle and deal 8 cards to each player. Take a normal 52-card deck and thoroughly shuffle it. One card at a time, deal cards to players starting with the player on your left. If there are only two players total, only deal 7 cards instead of the usual 8
+2. Place the remaining cards in the center. When cards are deal between players, set the remaining cards face down in the center of the playing area. These cards form the draw pile. If you can’t play a card, you’ll draw from these cards until you get a playable one.
+3. Turn a draw pile card face-up to form the discard pile. When you finish dealing, turn over the top card in the draw pile and set it beside the draw cards. This will become the discard pile. If an 8 starts off the draw pile, reshuffle and flip over a new starting card.
+
+How to play:
+1. Match rank or suit with the top card to get rid of one of your cards. 
+	To play a card, players must either match the rank (4, 10, K, A…) or suit (♣,♦,♥,♠) with a single card in their hand. 
+	This card is placed face-up on top of the discard pile and the turn passes to the next player on the left.
+	8s are wild cards. When you play an 8, you'll have to declare the new suit.
+2.	Draw cards if you have no playable cards in your hand. If you don't have any cards in your hand that match the rank or suit of the top card, draw cards from the draw pile until you get a playable card. 
+	After that, play the card and then continue as normal.
+	If drawn card is '8', you'll have to declare the new suit. 
+3. 	Play cards one at a time until a player has none left. 
+	Once the player to the left of the dealer has played a single card, the next player to the left goes. 
+	In this fashion, players discard (or draw until they can discard) a single card at a time. 
+	The hand ends when a player has no more cards in their hand.
+	The person who discarded their cards first is the winner

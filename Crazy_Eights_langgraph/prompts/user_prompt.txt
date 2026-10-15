@@ -10,7 +10,10 @@ Active Suit:
 Legal card indices (choose ONE of these as `chosen_index`):
 {legal_indices}
 
+HOUSE RULES:
+{house_rules}
+
 Make your choice strategically:
 1. Set `chosen_index` to the index of the card you want to play. It must be one of the legal indices above.
 2. If you choose an 8, also specify a strategic `declared_suit`. If you do NOT play an 8, leave `declared_suit` as null.
-3. {comment_instruction}
+3. If HOUSE RULES is not empty, write ONE short, fun comment about your move in the spirit of the house rules and return it in `roleplay_comment`. If HOUSE RULES is empty, set `roleplay_comment` to null.

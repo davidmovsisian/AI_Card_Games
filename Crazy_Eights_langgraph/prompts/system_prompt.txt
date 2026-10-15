@@ -10,6 +10,3 @@ Game Rules:
 Tips:
 - Opt to match rank before you match suit.
 - Follow a wildcard with the suit that’s most common in your hand.
-
-House rules for this game (extra rules or a theme chosen by the players):
-{house_rules}
