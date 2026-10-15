@@ -24,7 +24,8 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 import engine
 from engine import GameState
 from graph import build_graph
-from models import CreateGameRequest, JoinGameRequest, PlayCardRequest
+from models import (CreateGameRequest, CreateGameResponse, GameStateSummary, JoinGameRequest, MoveResponse,
+                    PlayCardRequest, StartGameResponse, StatusResponse)
 
 DB_PATH = os.environ.get("CRAZY8_DB", str(Path(__file__).parent / "games.db"))
 FRONTEND_DIR = Path(__file__).parent / "frontend"
@@ -34,11 +35,11 @@ if not FRONTEND_DIR.is_dir():
 
 class Runtime:
     """Process-wide resources, created in the app lifespan."""
-    checkpointer: Optional[AsyncSqliteSaver] = None
-    db: Optional[aiosqlite.Connection] = None
-    graphs: Dict[str, object] = {}
-    locks: Dict[str, asyncio.Lock] = {}
-
+    def __init__(self):
+        self.checkpointer: Optional[AsyncSqliteSaver] = None
+        self.db: Optional[aiosqlite.Connection] = None
+        self.graphs: Dict[str, object] = {}             # game_id -> compiled graph
+        self.locks: Dict[str, asyncio.Lock] = {}        # game_id -> lock (one run at a time per game)    
 
 rt = Runtime()
 
@@ -122,7 +123,7 @@ async def run_graph(game_id: str, graph_input: dict) -> dict:
 
 # ── lobby ─────────────────────────────────────────────────────────────────────
 
-@app.post("/game/create")
+@app.post("/game/create", response_model=CreateGameResponse)
 async def create_game(req: CreateGameRequest):
     game_id = uuid4().hex
     await rt.db.execute("INSERT INTO games (game_id, house_rules, players) VALUES (?, ?, ?)",
@@ -131,7 +132,7 @@ async def create_game(req: CreateGameRequest):
     return {"status": "Game created", "game_id": game_id}
 
 
-@app.post("/game/{game_id}/join_game")
+@app.post("/game/{game_id}/join_game", response_model=StatusResponse)
 async def join_game(game_id: str, req: JoinGameRequest):
     row = await load_game_row(game_id)
     if row["started"]:
@@ -146,7 +147,7 @@ async def join_game(game_id: str, req: JoinGameRequest):
     return {"status": f"{req.player_name} joined the game."}
 
 
-@app.post("/game/{game_id}/start")
+@app.post("/game/{game_id}/start", response_model=StartGameResponse)
 async def start_game(game_id: str):
     row = await load_game_row(game_id)
     if row["started"]:
@@ -166,7 +167,7 @@ async def start_game(game_id: str):
 
 # ── gameplay ──────────────────────────────────────────────────────────────────
 
-@app.get("/game/{game_id}/state")
+@app.get("/game/{game_id}/state", response_model=GameStateSummary)
 async def get_state(game_id: str):
     graph = await get_graph(game_id)
     snapshot = await graph.aget_state(config_for(game_id))
@@ -174,7 +175,7 @@ async def get_state(game_id: str):
     return engine.summarize(game)
 
 
-@app.post("/game/{game_id}/play")
+@app.post("/game/{game_id}/play", response_model=MoveResponse)
 async def play_card(game_id: str, payload: PlayCardRequest):
     return await run_graph(game_id, {"human_move": {
         "player": payload.player_name, "action": "play",
@@ -182,12 +183,12 @@ async def play_card(game_id: str, payload: PlayCardRequest):
     }})
 
 
-@app.post("/game/{game_id}/draw")
+@app.post("/game/{game_id}/draw", response_model=MoveResponse)
 async def draw_card(game_id: str, player_name: str):
     return await run_graph(game_id, {"human_move": {"player": player_name, "action": "draw"}})
 
 
-@app.post("/game/{game_id}/declare_suit")
+@app.post("/game/{game_id}/declare_suit", response_model=MoveResponse)
 async def declare_suit(game_id: str, player_name: str, suit: str):
     return await run_graph(game_id, {"human_move": {"player": player_name, "action": "declare", "suit": suit}})
 

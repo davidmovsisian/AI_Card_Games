@@ -170,15 +170,15 @@ def build_graph(players: List[Tuple[str, str]], checkpointer=None, ai_chooser: O
         who = current_name(game)
         if game["pending_suit_player"] or is_human[who]: 
             return END                  # rest here until the human acts
-        return node_of(who)             # ai node
+        return node_of[who]             # ai node
 
     path_map ={"setup": "setup", **{v: v for v in node_of.values()}, END: END}
 
     builder = StateGraph(GraphState)
     builder.add_node("setup", setup_node)
     for name in names:
-        node = make_human_node(name) if is_human[name] else make_ai_node(name)
-        builder.add_node(node_of(name), node)
+        node = make_human_node(name) if is_human[name] else make_ai_node(name, ai_chooser)
+        builder.add_node(node_of[name], node)
 
     builder.add_conditional_edges(START, entry_root, path_map)
     for current_node in ["setup", *node_of.values()]:
